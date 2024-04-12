@@ -20,8 +20,6 @@ If a shared database is being used (e.g., the database resides on a NAS filesyst
 [KeePass]: https://keepass.info/
 [Trusted Platform Module]: https://en.wikipedia.org/wiki/Trusted_Platform_Module
 
-[binLink]: https://github.com/CSquared167/KeePassProtectedKeyStore/releases "Plugin Releases"
-
 ## When a Protected Key Store is No Longer Available:
 One explanation of when a protected key store is no longer available is when the encrypted key store files become corrupted or are deleted.
 
@@ -41,10 +39,12 @@ The KeePass documentation includes additional information related to the [Window
 KeePassProtectedKeyStore cannot help you if you lose access to your database because you forgot your original master key, didn't create or lost your emergency key recovery file, secured the emergency key recovery file with a password but don't remember what it was, etc.
 
 ## How to Install:
-- Download [KeePassProtectedKeyStore.dll][binLink] to your computer.
+- Download [KeePassProtectedKeyStore.zip][binLink] to your computer and extract KeePassProtectedKeyStore.dll from it.
 - Open KeePass and select `Tools/Plugins...` from the main menu.
 - Click the `Open Folder` button. This will open a Windows Explorer window, set to the location of KeePass' Plugins folder.
 - Move or copy KeePassProtectedKeyStore.dll to the Plugins folder. You will probably get a message stating you will need to provide administrator permission. Click on whichever button allows the move/copy to complete.
+
+[binLink]: https://github.com/CSquared167/KeePassProtectedKeyStore/releases "Plugin Releases"
 
 ## Options:
 The KeePassProtectedKeyStore options are available from KeePass' `Tools` menu:
