@@ -8,8 +8,8 @@ This plugin for [KeePass 2][KeePass] password manager uses the computer's [Trust
 
 KeePassProtectedKeyStore includes the following functionality:
 - Convert one or more existing authentication keys (master password, Windows user account, and/or a key/file provider) to a protected key store.
-- Create an emergency key recovery file, in case the protected key store is [no longer available](#when-a-protected-user-key-is-no-longer-available).
-- Import an emergency key recovery file to recreate a protected key store that is [no longer available](#when-a-protected-user-key-is-no-longer-available).
+- Create an emergency key recovery file, in case the protected key store is [no longer available](#when-a-protected-key-store-is-no-longer-available).
+- Import an emergency key recovery file to recreate a protected key store that is [no longer available](#when-a-protected-key-store-is-no-longer-available).
 - Auto-login to a database for which a protected key store is the only authentication key.
 - Auto-generate a random protected key store when you either create a new database or change the master password of an existing database, and the new master key includes the KeePassProtectedKeyStore key provider.
 
@@ -120,4 +120,4 @@ The auto-login functionality was inspired by Jeremy Bourgin's [KeePassAutoUnlock
 [KeePassAutoUnlock]: https://github.com/jeremy-bourgin/KeePassAutoUnlock
 
 ## Creating a New Auto-Generated Protected Key Store:
-If you create a new database or change the master key for an existing database, and you include the KeePassProtectedKeyStore key provider as part of the master key, KeePassProtectedKeyStore will auto-generate a new random key. In these cases it will be more critical for you to create an emergency key recovery file. Because the key will be unknown to you, you will lose access to the database if the protected key store is [no longer available](#when-a-protected-user-key-is-no-longer-available).
+If you create a new database or change the master key for an existing database, and you include the KeePassProtectedKeyStore key provider as part of the master key, KeePassProtectedKeyStore will auto-generate a new random key. In these cases it will be more critical for you to create an emergency key recovery file. Because the key will be unknown to you, you will lose access to the database if the protected key store is [no longer available](#when-a-protected-key-store-is-no-longer-available).
