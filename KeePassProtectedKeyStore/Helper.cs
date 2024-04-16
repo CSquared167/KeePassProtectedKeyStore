@@ -3,11 +3,29 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
+using System.Reflection;
 
 namespace KeePassProtectedKeyStore
 {
     internal static class Helper
     {
+        // Plugin name, to be used for display and other purposes.
+        public static string PluginName { get; } = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyTitleAttribute>().Title;
+
+        // Default protected key store name.
+        public static string DefaultProtectedKeyStoreName => "Default";
+
+        // When creating a new key, specifies whether the user requested to use the default protected
+        // key store.
+        public static bool CreateNewKeyRequestingDefaultKey { get; set; } = false;
+
+        // When creating a new key, specifies whether a protected key store already exists for the
+        // database (either the default key or a database-specific key).
+        public static bool CreateNewKeyUsingExistingKey { get; set; } = false;
+
+        // When opening an existing key, specifies whether the default protected key store was used.
+        public static bool OpenExistingKeyUsingDefaultKey { get; set; } = false;
+
         // Method to compute an MD5 hash value for the given byte array.
         public static byte[] MD5HashData(byte[] pbData)
         {
@@ -57,7 +75,7 @@ namespace KeePassProtectedKeyStore
                 MessageBoxIcon icon = MessageBoxIcon.Error,
                 MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Button1) =>
             MessageBox.Show(string.Format(message, additionalInfo1, additionalInfo2),
-                KeePassProtectedKeyStoreExt.PluginName,
+                PluginName,
                 buttons,
                 icon,
                 defaultButton);

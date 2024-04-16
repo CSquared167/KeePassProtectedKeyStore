@@ -19,7 +19,7 @@ namespace KeePassProtectedKeyStore
             string dbPath = pd?.IOConnectionInfo?.Path ?? string.Empty;
             CompositeKey compositeKey = pd?.MasterKey;
             uint userKeyCount = compositeKey?.UserKeyCount ?? 0;
-            bool existingProtectedKeyStore = ProtectedKeyStore.HasProtectedKeyStore(compositeKey, out bool exclusive);
+            bool existingProtectedKeyStore = ProtectedKeyStore.IsProtectedKeyStoreInCompositeKey(compositeKey, out bool exclusive);
 
             // Enable ButtonConvert only if a database is already open and either does not already have a
             // protected key store or has additional authentication keys.
@@ -45,8 +45,8 @@ namespace KeePassProtectedKeyStore
         // key store.
         private void ButtonConvert_Click(object sender, EventArgs e)
         {
-            if (ProtectedKeyStore.ConvertToProtectedKeyStore(out bool exclusive) && exclusive)
-                AddAutoLogin(Program.MainForm.ActiveDatabase.IOConnectionInfo.Path);
+            if (ProtectedKeyStore.ConvertToProtectedKeyStore(out string dbPath, out bool exclusive) && exclusive)
+                AddAutoLogin(dbPath);
         }
 
         // Handler for when the user requests to create an emergency key recovery file.
@@ -54,7 +54,7 @@ namespace KeePassProtectedKeyStore
         {
             PwDatabase pd = Program.MainForm.ActiveDatabase;
             CompositeKey compositeKey = pd.MasterKey;
-            byte[] pbData = ProtectedKeyStore.FindProtectedKeyStore(compositeKey, out bool exclusive).KeyData.ReadData();
+            byte[] pbData = ProtectedKeyStore.FindProtectedKeyStoreInCompositeKey(compositeKey, out bool exclusive).KeyData.ReadData();
 
             EmergencyKeyRecoveryFile.CreateEmergencyRecoveryKeyFile(pd.IOConnectionInfo.Path, pbData, exclusive);
             MemUtil.ZeroArray(pbData);

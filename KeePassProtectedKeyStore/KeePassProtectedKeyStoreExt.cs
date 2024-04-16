@@ -7,6 +7,8 @@ using KeePassLib.Keys;
 using KeePassLib.Serialization;
 using KeePassLib.Utility;
 using System;
+using System.ComponentModel;
+using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Windows.Forms;
 
@@ -52,12 +54,20 @@ namespace KeePassProtectedKeyStore
     // instead of them. If the original authentication keys are used in addition to the KeePassProtectedKeyStore,
     // KeePass will consider them to be separate keys and will attempt to authenticate the database against both
     // keys, which will fail.
+    //
+    // Version 1.1.0 changes:
+    // - Added support for default protected key store.
+    // - If the user attempts to create a protected key store that already exists and contains the same key, the
+    //   plugin will simply report this fact and will not overwrite it.
+    // - If the user attempts to create a protected key store that already exists and contains a different key,
+    //   the plugin will still ask whether to overwrite it but will give a warning about the potential consequences.
+    // - Corrected an issue where if the master key is changed and no longer uses a protected key store, the
+    //   protected key store and auto-login entries were not being removed.
+    // - Corrected an issue in the plugin's Terminate method, to remove the "WindowRemoved" event handler correctly.
+    // - Minor code refactoring not impacting functionality.
 
     public sealed class KeePassProtectedKeyStoreExt : Plugin
     {
-        // Plugin name, to be used for display and other purposes.
-        public static string PluginName { get; } = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyTitleAttribute>().Title;
-
         // Key provider instance.
         private KeePassProtectedKeyStoreProvider KeyProviderInstance { get; } = new KeePassProtectedKeyStoreProvider();
 
@@ -91,7 +101,7 @@ namespace KeePassProtectedKeyStore
         public override void Terminate()
         {
             GlobalWindowManager.WindowAdded -= GlobalWindowManager_WindowAdded;
-            GlobalWindowManager.WindowRemoved += GlobalWindowManager_WindowRemoved;
+            GlobalWindowManager.WindowRemoved -= GlobalWindowManager_WindowRemoved;
             PluginHost.KeyProviderPool?.Remove(KeyProviderInstance);
 
             base.Terminate();
@@ -136,65 +146,107 @@ namespace KeePassProtectedKeyStore
 
                 // This is for a corner case that is not likely to happen, but it is here in case
                 // it does happen. If the CompositeKey consists exclusively of a protected key store,
-                // add it to the plugin configuration if it is not already there. This situation
-                // could occur if the plugin configuration file was deleted or became corrupted,
-                // and the user opens the database by selecting the KeePassProtectedKeyStore
-                // authentication option manually. By adding it to the plugin configuration, the
-                // user can then configure the database for for auto-login.
+                // and the protected key store is not the default key, add it to the plugin configuration
+                // if it is not already there. This situation could occur if the plugin configuration file
+                // was deleted or became corrupted, and the user opens the database by selecting the
+                // KeePassProtectedKeyStore authentication option manually. By adding it to the plugin
+                // configuration, the user can then configure it for for auto-login.
                 if (!string.IsNullOrEmpty(connectionInfo?.Path) &&
-                        ProtectedKeyStore.HasProtectedKeyStore(compositeKey, out bool exclusive) && exclusive)
+                        !Helper.OpenExistingKeyUsingDefaultKey &&
+                        ProtectedKeyStore.IsProtectedKeyStoreInCompositeKey(compositeKey, out bool exclusive) && exclusive)
                     PluginConfiguration.AddAutoLogin(connectionInfo.Path);
+
+                // Reset helper variable.
+                Helper.OpenExistingKeyUsingDefaultKey = false;
             }
             else if (e.Form is KeyCreationForm keyCreationForm)
             {
-                // When the KeyCreationForm is being disposed, use reflection to get the instance's
-                // private IOConnectionInfo member variable. Also get the instance's public
-                // CompositeKey member variable and check whether it includes a protected key store.
+                // This code will be entered when the KeyCreationForm is being disposed. Use reflection to get
+                // the instance's private IOConnectionInfo member variable.
                 FieldInfo fieldInfo = typeof(KeyCreationForm).GetField("m_ioInfo", BindingFlags.Instance | BindingFlags.NonPublic);
-                string dbPath = (fieldInfo?.GetValue(keyCreationForm) as IOConnectionInfo)?.Path;
-                CompositeKey compositeKey = keyCreationForm.CompositeKey;
-                IUserKey userKey = ProtectedKeyStore.FindProtectedKeyStore(compositeKey, out bool exclusive);
 
-                if (!string.IsNullOrEmpty(dbPath) && userKey != null)
+                // Attempt to get the database path from the KeyCreationForm's IOConnectionInfo. If it is
+                // null/empty, the user canceled out of the key creation form.
+                string dbPathFromFieldInfo = (fieldInfo?.GetValue(keyCreationForm) as IOConnectionInfo)?.Path;
+
+                if (!string.IsNullOrEmpty(dbPathFromFieldInfo))
                 {
-                    // If the new composite key includes a protected key store, create a new encrypted protected
-                    // key store. If it is the only authentication key, add it to the plugin configuration as an
-                    // auto-login database.
-                    byte[] pbData = userKey.KeyData.ReadData();
+                    // Get the instance's public CompositeKey member variable and check whether it includes a
+                    // protected key store.
+                    CompositeKey compositeKey = keyCreationForm.CompositeKey;
+                    IUserKey userKey = ProtectedKeyStore.FindProtectedKeyStoreInCompositeKey(compositeKey, out bool exclusive);
 
-                    if (ProtectedKeyStore.CreateProtectedKeyStoreForNewMasterKey(dbPath, pbData, exclusive) && exclusive)
+                    // Initial criterion for auto-login is that a protected key store must be the only
+                    // authentication method.
+                    bool addAutoLogin = exclusive;
+
+                    // Get the correct database path to associate with the protected key store, depending on
+                    // whether the user requested to use the default key when creating the master key.
+                    string dbPath = Helper.CreateNewKeyRequestingDefaultKey ?
+                        Helper.DefaultProtectedKeyStoreName :
+                        dbPathFromFieldInfo;
+
+                    // Remove the auto-login entry for this database from the plugin configuration. It will be
+                    // added back down below if required.
+                    PluginConfiguration.RemoveAutoLogin(dbPathFromFieldInfo);
+
+                    // If the new master key doesn't contain a protected key store, or if the user requested to
+                    // use the default key, delete the protected key store file associated with this database
+                    // (if it exists).
+                    if (userKey == null || Helper.CreateNewKeyRequestingDefaultKey)
+                        AppDataStore.DeleteProtectedKeyStore(dbPathFromFieldInfo);
+
+                    if (!Helper.CreateNewKeyUsingExistingKey && userKey != null)
+                    {
+                        byte[] pbData = userKey.KeyData.ReadData();
+
+                        // Attempt to create the new protected key store. Do not create an auto-login entry if
+                        // the protected key store failed to be created.
+                        addAutoLogin &= ProtectedKeyStore.CreateProtectedKeyStoreForNewMasterKey(dbPath, pbData, exclusive);
+
+                        // Because pbData contains the unencrypted key, we need to clear the array so it does
+                        // not persist in memory.
+                        MemUtil.ZeroArray(pbData);
+                    }
+
+                    // Add an auto-login entry if it meets all of the criteria.
+                    if (addAutoLogin)
                         PluginConfiguration.AddAutoLogin(dbPath);
-
-                    // Zero-out the unencrypted key data buffer.
-                    MemUtil.ZeroArray(pbData);
                 }
+
+                // Reset helper variables.
+                Helper.CreateNewKeyRequestingDefaultKey = false;
+                Helper.CreateNewKeyUsingExistingKey = false;
             }
         }
 
-        // Method to perform an auto-login of the database specified in the IConnectionInfo instance.
-        private bool PerformAutoLogin(IOConnectionInfo connectionInfo)
+        // Method to perform an auto-login of the database specified in the IConnectionInfo instance, or auto-login
+        // using the default protected key store.
+        private bool PerformAutoLogin(IOConnectionInfo connectionInfo) =>
+            PerformAutoLogin(connectionInfo, connectionInfo?.Path) ||
+            PerformAutoLogin(connectionInfo, Helper.DefaultProtectedKeyStoreName);
+
+        // Method to perform an auto-login of the database specified in the IConnectionInfo instance, using the
+        // database path specified in dbPath.
+        private bool PerformAutoLogin(IOConnectionInfo connectionInfo, string dbPath)
         {
             bool success = false;
 
             // Check whether auto-login is set and enabled for this database.
-            if (PluginConfiguration.Instance.IsAutoLoginSet(connectionInfo?.Path, out bool autoLoginEnabled) && autoLoginEnabled)
+            if (PluginConfiguration.Instance.IsAutoLoginSet(dbPath, out bool autoLoginEnabled) && autoLoginEnabled)
             {
                 byte[] pbData = null;
 
                 try
                 {
-                    // Create a KeyProviderQueryContext variable and call our provider class to get
-                    // the protected key store.
-                    KeyProviderQueryContext ctx = new KeyProviderQueryContext(connectionInfo, false, false);
-
-                    pbData = KeyProviderInstance.GetKey(ctx);
+                    pbData = ProtectedKeyStore.GetProtectedKeyStore(dbPath);
                     if (pbData != null)
                     {
                         // If getting the key was successful, create a new CompositeKey instance
                         // and use it to open the database.
                         CompositeKey compositeKey = new CompositeKey();
 
-                        compositeKey.AddUserKey(new KcpCustomKey(PluginName, pbData, false));
+                        compositeKey.AddUserKey(new KcpCustomKey(Helper.PluginName, pbData, false));
                         PluginHost.Database.Open(connectionInfo, compositeKey, null);
 
                         PwDocument ds = Program.MainForm.DocumentManager.ActiveDocument;
@@ -255,7 +307,7 @@ namespace KeePassProtectedKeyStore
             // a memory error occcurs allocating a new ToolStripMenuItem instance.
             if (tsmi != null)
             {
-                tsmi.Text = string.Format("{0} Options...", PluginName);
+                tsmi.Text = string.Format("{0} Options...", Helper.PluginName);
                 tsmi.Click += OnMenuItemClick;
             }
 

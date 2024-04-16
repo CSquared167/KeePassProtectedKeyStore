@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Xml;
 
 namespace KeePassProtectedKeyStore
@@ -174,27 +175,22 @@ namespace KeePassProtectedKeyStore
         }
 
         // Method to determine whether the database specified by dbPath exists in the Document. If
-        // found, it also returns the status of whetner auto-login is enabled for that database.
+        // found, it also returns the status of whether auto-login is enabled for that database.
         public bool IsAutoLoginSet(string dbPath, out bool autoLoginEnabled)
         {
-            XmlNode autoLoginNode = null;
+            Dictionary<string, bool> autoLoginMap = AutoLoginMap;
+            bool result = false;
+
+            autoLoginEnabled = false;
 
             if (!string.IsNullOrEmpty(dbPath))
             {
-                string dbPathLower = dbPath.ToLower();
-                XmlNodeList autoLoginNodes = AutoLoginListNode?.ChildNodes;
+                string autoLoginKey = GetAutoLoginKey(dbPath);
 
-                // Loop through the AutoLoginList nodes for the database. The list is searched manually
-                // rather than using methods such as XmlNode.SelectSingleNode, because there does not
-                // appear to be any way of performing a case-insensitive match against the InnerText
-                // of the AutoLogin nodes.
-                for (int i = 0; i < autoLoginNodes?.Count && autoLoginNode == null; i++)
-                    if (autoLoginNodes[i].InnerText.ToLower() == dbPathLower)
-                        autoLoginNode = autoLoginNodes[i];
+                result = !string.IsNullOrEmpty(autoLoginKey) && autoLoginMap.TryGetValue(autoLoginKey, out autoLoginEnabled);
             }
 
-            autoLoginEnabled = Convert.ToBoolean(autoLoginNode?.Attributes?[AutoLoginEnabledAttributeName]?.Value ?? false.ToString());
-            return autoLoginNode != null;
+            return result;
         }
 
         // Method to add an auto-login for the specified database to the configuration file.
@@ -223,6 +219,46 @@ namespace KeePassProtectedKeyStore
             }
 
             return result;
+        }
+
+        // Method to remove an auto-login entry from the plugin configuration.
+        public static bool RemoveAutoLogin(string dbPath)
+        {
+            PluginConfiguration pluginConfiguration = Instance;
+            string autoLoginKey = GetAutoLoginKey(dbPath);
+            bool result = false;
+
+            if (!string.IsNullOrEmpty(autoLoginKey))
+            {
+                Dictionary<string, bool> autoLoginMap = pluginConfiguration.AutoLoginMap;
+
+                // Remove the database from the auto-login table.
+                autoLoginMap.Remove(autoLoginKey);
+
+                // Set the PluginConfiguration's AutoLoginMap with the updated Dictionary. This assignment
+                // will cause the configuration file to be written to the disk.
+                pluginConfiguration.AutoLoginMap = autoLoginMap;
+
+                // If the assignment to AutoLoginMap failed (for example, an I/O error writing the file),
+                // the PluginConfiguration class' LastError will contain the HRESULT of the caught
+                // exception.
+                result = pluginConfiguration.LastError == 0;
+            }
+
+            return result;
+        }
+
+        // Method to get the auto-login key from the plugin configuration. Because dbPath can have different
+        // upper/lowercase characters from what is in the auto-login map, an all-lowercase search is done.
+        private static string GetAutoLoginKey(string dbPath)
+        {
+            PluginConfiguration pluginConfiguration = Instance;
+            Dictionary<string, bool> autoLoginMap = pluginConfiguration.AutoLoginMap;
+            Dictionary<string, string> autoLoginKeyMap = autoLoginMap.Keys
+                .ToDictionary(p => p.ToLower(), p => p);
+
+            autoLoginKeyMap.TryGetValue(dbPath.ToLower(), out string autoLoginKey);
+            return autoLoginKey;
         }
 
         // Method to return the document's root node.

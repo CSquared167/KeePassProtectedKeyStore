@@ -7,13 +7,13 @@
 This plugin for [KeePass 2][KeePass] password manager uses the computer's [Trusted Platform Module] (TPM) hardware to create protected key stores. The encrypted key store files are stored in the `%LOCALAPPDATA%\CSquared167\KeePassProtectedKeyStore` folder.
 
 KeePassProtectedKeyStore includes the following functionality:
-- Convert one or more existing authentication keys (master password, Windows user account, and/or a key/file provider) to a protected key store.
-- Create an emergency key recovery file, in case the protected key store is [no longer available](#when-a-protected-key-store-is-no-longer-available).
-- Import an emergency key recovery file to recreate a protected key store that is [no longer available](#when-a-protected-key-store-is-no-longer-available).
-- Auto-login to a database for which a protected key store is the only authentication key.
-- Auto-generate a random protected key store when you either create a new database or change the master password of an existing database, and the new master key includes the KeePassProtectedKeyStore key provider.
+- [Convert](#creating-a-protected-key-store) one or more existing authentication keys (master password, Windows user account, and/or a key/file provider) to a protected key store.
+- [Create](#creating-an-emergency-key-recovery-file) an emergency key recovery file, in case the protected key store is [no longer available](#when-a-protected-key-store-is-no-longer-available).
+- [Import](#importing-an-emergency-key-recovery-file) an emergency key recovery file to recreate a protected key store that is [no longer available](#when-a-protected-key-store-is-no-longer-available).
+- [Auto-login](#auto-login-options) to a database for which a protected key store is the only authentication key.
+- [Create or reuse](#creating-a-new-master-key-including-the-keepassprotectedkeystore-key-provider) a protected key store when you either create a new database or change the master password of an existing database, and the new master key includes the KeePassProtectedKeyStore key provider.
 
-For users with multiple databases, KeePassProtectedKeyStore can maintain separate protected key stores for each database.
+For users with multiple databases, KeePassProtectedKeyStore can maintain separate protected key stores for each database. For users who have either a single database or multiple databases with the same master key, this plugin can maintain a single default protected key store.
 
 If a shared database is being used (e.g., the database resides on a NAS filesystem and is accessed by multiple computers), KeePassProtectedKeyStore can be used on each computer to generate a protected key store file specific to that Windows user and computer. If an emergency key recovery file is created, it does not need to be created more than once, and it can be imported on any other computer that requires it.
 
@@ -56,7 +56,15 @@ The KeePassProtectedKeyStore Options dialog will initially look like the followi
 <img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/OptionsDialogPreConversion.png?raw=true" />
 
 ## Creating a Protected Key Store:
-To create a protected key store, click `Convert Existing Authentication Key(s) to a Protected Key Store...` from the KeePassProtectedKeyStore Options dialog. You will be prompted to select the authentication key(s) to convert, even if the database has only one authentication key. The following shows what the prompt will look like for a database that has only a master password:
+To create a protected key store, click `Convert Existing Authentication Key(s) to a Protected Key Store...` from the KeePassProtectedKeyStore Options dialog. You will first be prompted to specify the type of protected key store you wish to create:
+- Default: You can use this option if you have only one database, or if you have multiple databases that use the same master key.
+- Individual: You can use this option if you have multiple databases using different master keys.
+
+The screenshot below gives additional details around each type.
+
+<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/ProtectedKeyStoreType.png?raw=true" />
+
+You will next be prompted to select the authentication key(s) to convert, even if the database has only one authentication key. The following shows what the prompt will look like for a database that has only a master password:
 
 <img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/ConvertToProtectedKeyStoreDialog1.png?raw=true" />
 
@@ -68,13 +76,17 @@ If you attempt to deselect the key file/provider, the entry will be reselected, 
 
 <img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/ConvertToProtectedKeyStoreWarningDialog.png?raw=true" />
 
-Once you have created the protected key store, the KeePassProtectedKeyStore Options dialog will look similar to the following:
+Once you have created the protected key store, the KeePassProtectedKeyStore Options dialog will look similar to the following, depending on which type of protected key store you chose to create:
 
-<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/OptionsDialogPostConversion.png?raw=true" />
+<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/OptionsDialogPostConversion1.png?raw=true" />
 
-Once you have logged back into the database using the protected key store, the KeePassProtectedKeyStore Options dialog will look similar to the following:
+<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/OptionsDialogPostConversion2.png?raw=true" />
 
-<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/OptionsDialogAfterLogin.png?raw=true" />
+Once you have logged back into the database using the protected key store, the KeePassProtectedKeyStore Options dialog will look similar to the following, depending on which type of protected key store you chose to create:
+
+<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/OptionsDialogAfterLogin1.png?raw=true" />
+
+<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/OptionsDialogAfterLogin2.png?raw=true" />
 
 ## Creating an Emergency Key Recovery File:
 After creating a protected key store, you will be asked whether you want to create an emergency key recovery file. You can also click `Create an Emergency Key Recovery File...` at any time from the KeePassProtectedKeyStore Options dialog.
@@ -94,7 +106,9 @@ Once the protection method has been finalized, you will be prompted to save the 
 **NOTE:** The emergency key recovery file contains ONLY the protected key store created by KeePassProtectedKeyStore. It DOES NOT include the master password or Windows user account keys.
 
 ## Importing an Emergency Key Recovery File:
-To import an emergency key recovery file, click `Import an Emergency Key Recovery File...` from the KeePassProtectedKeyStore Options dialog. You will be prompted twice: once to select the file to import, and once to confirm the database associated with the protected key store. It is critical for the protected key store to be associated with the correct database, or else you will not be able to open the database after importing the key. By default you will be prompted with the directory where the database was located when the emergency key recovery file was created, but you have the option to change it if you moved the database since creating the file.
+To import an emergency key recovery file, click `Import an Emergency Key Recovery File...` from the KeePassProtectedKeyStore Options dialog. You will first be prompted to select the file to import.
+
+If the file is associated with an individual protected key store, you will also be prompted to confirm the associated database's directory/filename. It is critical for an individual protected key store to be associated with the correct database, or else you will not be able to open the database after importing the key. By default you will be prompted with the directory where the database was located when the emergency key recovery file was created, but you have the option to change it if you moved and/or renamed the database since creating the file.
 
 If you had entered a password to protect the data when the file was created, you will be prompted to confirm the password as follows:
 
@@ -119,5 +133,9 @@ The auto-login functionality was inspired by Jeremy Bourgin's [KeePassAutoUnlock
 
 [KeePassAutoUnlock]: https://github.com/jeremy-bourgin/KeePassAutoUnlock
 
-## Creating a New Auto-Generated Protected Key Store:
-If you create a new database or change the master key for an existing database, and you include the KeePassProtectedKeyStore key provider as part of the master key, KeePassProtectedKeyStore will auto-generate a new random key. In these cases it will be more critical for you to create an emergency key recovery file. Because the key will be unknown to you, you will lose access to the database if the protected key store is [no longer available](#when-a-protected-key-store-is-no-longer-available).
+## Creating a New Master Key Including the KeePassProtectedKeyStore Key Provider:
+If you create a new database or change the master key for an existing database, and you include the KeePassProtectedKeyStore key provider as part of the master key, KeePassProtectedKeyStore will prompt for the type of protected key store you wish to create:
+
+<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/ProtectedKeyStoreType.png?raw=true" />
+
+Whichever type you choose, if a protected key store of that type already exists, the existing protected key store will be used as the key. If it does not already exist, a new random key will be auto-generated. In these cases it will be more critical for you to create an emergency key recovery file. Because the key will be unknown to you, you will lose access to the database if the protected key store is [no longer available](#when-a-protected-key-store-is-no-longer-available).

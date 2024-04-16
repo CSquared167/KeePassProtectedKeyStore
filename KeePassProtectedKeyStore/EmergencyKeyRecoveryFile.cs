@@ -14,7 +14,7 @@ namespace KeePassProtectedKeyStore
     {
         private XmlDocument Document { get; } = new XmlDocument();
 
-        private static string RootNodeName => KeePassProtectedKeyStoreExt.PluginName;
+        private static string RootNodeName => Helper.PluginName;
 
         private static string VersionNodeName => "Version";
 
@@ -43,12 +43,12 @@ namespace KeePassProtectedKeyStore
         // Emergency key recovery file filter, to show the uset in the File Open/File Save dialogs.
         private static string EmergencyRecoveryKeyFileFilter { get; } =
             string.Format(Resources.EmergencyRecoveryKeyFileFilter,
-                KeePassProtectedKeyStoreExt.PluginName);
+                Helper.PluginName);
 
         // Used for display purposes to identify emergency key file type.
         private static string EmergencyRecoveryKeyFileFileType { get; } =
             string.Format("{0} Emergency Key Recovery File",
-            KeePassProtectedKeyStoreExt.PluginName);
+            Helper.PluginName);
 
         // Additional entropy to increase the complexity of the encryption.
         private static byte[] Entropy { get; } = new byte[]
@@ -60,7 +60,7 @@ namespace KeePassProtectedKeyStore
         // Constructor. Input is a user-specified encryption key (or null if we are expected to
         // provide the encryption key). The below code creates a default XmlDocument with all of the
         // required nodes.
-        public EmergencyKeyRecoveryFile(byte[] pbUserEncrypionKey = null)
+        public EmergencyKeyRecoveryFile(byte[] pbUserEncryptionKey = null)
         {
             XmlDeclaration xmlDeclaration = Document.CreateXmlDeclaration("1.0", "UTF-8", null);
             XmlNode rootNode = Document.CreateElement(RootNodeName);
@@ -83,8 +83,8 @@ namespace KeePassProtectedKeyStore
             Document.AppendChild(xmlDeclaration);
             Document.AppendChild(rootNode);
 
-            if (pbUserEncrypionKey != null)
-                UserEncryptionKey = new ProtectedBinary(true, pbUserEncrypionKey);
+            if (pbUserEncryptionKey != null)
+                UserEncryptionKey = new ProtectedBinary(true, pbUserEncryptionKey);
         }
 
         // Method to load an XML file from the given path.
@@ -120,7 +120,7 @@ namespace KeePassProtectedKeyStore
 
             if (!success && string.IsNullOrEmpty(LastError))
                 LastError = string.Format(Resources.EmergencyRecoveryKeyFileBadFormat,
-                    KeePassProtectedKeyStoreExt.PluginName);
+                    Helper.PluginName);
 
             return success;
         }
@@ -280,7 +280,7 @@ namespace KeePassProtectedKeyStore
                         CheckPathExists = true,
                         DefaultExt = ".xml",
                         FileName = string.Format("{0}.{1}.xml",
-                            KeePassProtectedKeyStoreExt.PluginName,
+                            Helper.PluginName,
                             nameof(EmergencyKeyRecoveryFile)),
                         Filter = EmergencyRecoveryKeyFileFilter,
                         InitialDirectory = pluginConfiguration.LastDirectory,
@@ -324,6 +324,8 @@ namespace KeePassProtectedKeyStore
                     Helper.FormatExceptionMessageFromHResult(exc));
             }
 
+            // Because pbUserEncryptionKey contains the unencrypted key, we need to clear the array so it
+            // does not persist in memory.
             if (pbUserEncryptionKey != null)
                 MemUtil.ZeroArray(pbUserEncryptionKey);
         }
@@ -333,6 +335,7 @@ namespace KeePassProtectedKeyStore
         {
             EmergencyKeyRecoveryFile keyFile = new EmergencyKeyRecoveryFile();
             PluginConfiguration pluginConfiguration = PluginConfiguration.Instance;
+            string dbPathAssociatedWithKeyStore = string.Empty;
             byte[] pbData = null;
             bool result = false;
 
@@ -397,36 +400,53 @@ namespace KeePassProtectedKeyStore
                     }
                 }
 
-                // If everything passes until this point, we need to validate the location of the KeePass
-                // database associated with the emergency key recovery file. The database path at the time
-                // the file was created is stored in the file itself, but the user may have since moved the
-                // database file. It is important for this plugin to associate the protected key store with
-                // its corresponding database.
                 if (pbData != null)
-                    using (OpenFileDialog dlg = new OpenFileDialog
+                {
+                    // Get the path of the database from the file.
+                    dbPathAssociatedWithKeyStore = keyFile.DBPath;
+
+                    // Set createProtectedKeyStore to true if it is the default key store name.
+                    bool createProtectedKeyStore = dbPathAssociatedWithKeyStore.ToLower() == Helper.DefaultProtectedKeyStoreName.ToLower();
+
+                    if (!createProtectedKeyStore)
                     {
-                        CheckPathExists = true,
-                        CheckFileExists = true,
-                        FileName = Path.GetFileName(keyFile.DBPath),
-                        Filter = Resources.KeePassFileFilter,
-                        InitialDirectory = Path.GetDirectoryName(keyFile.DBPath),
-                        Multiselect = false,
-                        Title = string.Format("Select Database File Associated with {0}",
-                            EmergencyRecoveryKeyFileFileType)
-                    })
-                    {
-                        // If the user selects OK, create a protected key store and store it.
-                        if (dlg.ShowDialog() == DialogResult.OK)
+                        // If the emergency key recovery file does not contain the default key, we need to validate
+                        // the location of the associated KeePass database. The database path at the time the file
+                        // was created is stored in the file itself, but the user may have since moved the database
+                        // file. It is important for this plugin to associate the protected key store with its
+                        // corresponding database.
+                        using (OpenFileDialog dlg = new OpenFileDialog
                         {
-                            result = ProtectedKeyStore.CreateAndStoreProtectedKeyStore(dlg.FileName, pbData);
-                            if (result)
-                                Helper.DisplayMessage(Resources.ProtectedKeyStoreCreatedAfterImport,
-                                    KeePassProtectedKeyStoreExt.PluginName,
-                                    string.Empty,
-                                    MessageBoxButtons.OK,
-                                    MessageBoxIcon.Asterisk);
+                            CheckPathExists = true,
+                            CheckFileExists = true,
+                            FileName = Path.GetFileName(dbPathAssociatedWithKeyStore),
+                            Filter = Resources.KeePassFileFilter,
+                            InitialDirectory = Path.GetDirectoryName(dbPathAssociatedWithKeyStore),
+                            Multiselect = false,
+                            Title = string.Format("Select Database File Associated with {0}",
+                                EmergencyRecoveryKeyFileFileType)
+                        })
+                        {
+                            if (dlg.ShowDialog() == DialogResult.OK)
+                            {
+                                createProtectedKeyStore = true;
+                                dbPathAssociatedWithKeyStore = dlg.FileName;
+                            }
                         }
                     }
+
+                    // If everything is a go, create a protected key store and store it.
+                    if (createProtectedKeyStore)
+                    {
+                        result = ProtectedKeyStore.CreateAndStoreProtectedKeyStore(dbPathAssociatedWithKeyStore, pbData);
+                        if (result)
+                            Helper.DisplayMessage(Resources.ProtectedKeyStoreCreatedAfterImport,
+                                Helper.PluginName,
+                                string.Empty,
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
+                    }
+                }
             }
             catch (Exception exc)
             {
@@ -435,15 +455,20 @@ namespace KeePassProtectedKeyStore
                 ShowImportError(Helper.FormatExceptionMessageFromHResult(exc));
             }
 
+            // Because pbData contains the unencrypted key, we need to clear the array so it does
+            // not persist in memory.
             if (pbData != null)
                 MemUtil.ZeroArray(pbData);
 
-            dbPath = result ? keyFile.DBPath : string.Empty;
+            // Return the database path associated with the protected key store, and whether the emergency
+            // key recovery file consists exclusively of a protected key store.
+            dbPath = result ? dbPathAssociatedWithKeyStore : string.Empty;
             exclusive = result && keyFile.Exclusive;
 
             return result;
         }
 
+        // Method to take a byte array string and create an AES encryption key from it. 
         public static byte[] MakeAesEncryptionKeyFromString(byte[] pbEncryptionKeyString)
         {
             byte[] pbEncryptionKey = new byte[AesKeySizeInBytes];
@@ -457,7 +482,7 @@ namespace KeePassProtectedKeyStore
         // Method to show a dialog box alerting the user of an emergency key recovery file import error.
         private static void ShowImportError(string additionalInfo) =>
             Helper.DisplayMessage(Resources.EmergencyRecoveryFileImportError,
-                KeePassProtectedKeyStoreExt.PluginName,
+                Helper.PluginName,
                 additionalInfo);
 
         // Method to retrieve the KeyData node from the XML document.

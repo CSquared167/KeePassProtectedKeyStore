@@ -168,15 +168,6 @@ namespace KeePassProtectedKeyStore.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A protected key store file already exists for this database. Do you wish to overwrite it?.
-        /// </summary>
-        internal static string OverwriteProtectedKeyStoreFilePrompt {
-            get {
-                return ResourceManager.GetString("OverwriteProtectedKeyStoreFilePrompt", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Protected key store successfully created!
         ///
         ///The next time you login to the database, you can deselect the authentication key(s) you just converted and select the &quot;{0}&quot; option under &quot;Key file/provider&quot;.
@@ -230,6 +221,24 @@ namespace KeePassProtectedKeyStore.Properties {
         internal static string ProtectedKeyStoreDecryptError {
             get {
                 return ResourceManager.GetString("ProtectedKeyStoreDecryptError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A protected key store already exists but is different from the one you are about to create. This plugin will no longer be able to login to database(s) associated with the existing protected user key if you replace it. Do you wish to proceed?.
+        /// </summary>
+        internal static string ProtectedKeyStoreExistsAndIsDifferent {
+            get {
+                return ResourceManager.GetString("ProtectedKeyStoreExistsAndIsDifferent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A protected key store already exists. You do not need to create it again..
+        /// </summary>
+        internal static string ProtectedKeyStoreExistsAndIsSame {
+            get {
+                return ResourceManager.GetString("ProtectedKeyStoreExistsAndIsSame", resourceCulture);
             }
         }
     }

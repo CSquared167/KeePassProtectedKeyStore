@@ -20,20 +20,20 @@ namespace KeePassProtectedKeyStore
 
         // Method to determine whether this database already has a protected key store authentication
         // method. Returns the IUserKey if one exists, or else it returns null.
-        public static IUserKey FindProtectedKeyStore(CompositeKey compositeKey, out bool exclusive)
+        public static IUserKey FindProtectedKeyStoreInCompositeKey(CompositeKey compositeKey, out bool exclusive)
         {
             IUserKey result = compositeKey?.GetUserKey(typeof(KcpCustomKey)) is KcpCustomKey customKey
-                    && customKey.Name.ToLower() == KeePassProtectedKeyStoreExt.PluginName.ToLower() ?
+                    && customKey.Name.ToLower() == Helper.PluginName.ToLower() ?
                 customKey :
                 null;
 
-            exclusive = compositeKey?.UserKeyCount == 1;
+            exclusive = result != null && compositeKey?.UserKeyCount == 1;
             return result;
         }
 
         // Method to determine whether a protected key store is present in the specified CompositeKey.
-        public static bool HasProtectedKeyStore(CompositeKey compositeKey, out bool exclusive) =>
-            FindProtectedKeyStore(compositeKey, out exclusive) != null;
+        public static bool IsProtectedKeyStoreInCompositeKey(CompositeKey compositeKey, out bool exclusive) =>
+            FindProtectedKeyStoreInCompositeKey(compositeKey, out exclusive) != null;
 
         // Method to create a new protected key store, either as part of creating a new database or changing
         // the master key of an existing database. In such cases, the user will have selected the
@@ -46,7 +46,7 @@ namespace KeePassProtectedKeyStore
             bool result = CreateAndStoreProtectedKeyStore(dbPath, pbData);
 
             if (result && Helper.DisplayMessage(Resources.ProtectedKeyStoreCreatedNew,
-                    KeePassProtectedKeyStoreExt.PluginName,
+                    Helper.PluginName,
                     string.Empty,
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Asterisk) == DialogResult.Yes)
@@ -57,30 +57,41 @@ namespace KeePassProtectedKeyStore
 
         // Method to process a request to convert existing authentication key(s) to a protected
         // key store.
-        public static bool ConvertToProtectedKeyStore(out bool exclusive)
+        public static bool ConvertToProtectedKeyStore(out string dbPath, out bool exclusive)
         {
-            PwDatabase pd = Program.MainForm.ActiveDatabase;
-            string dbPath = pd.IOConnectionInfo.Path;
-            byte[] pbData = GetSelectedCompositeKeyData(pd.MasterKey, out exclusive);
             bool result = false;
 
-            // If pbData == null, the user canceled the operation.
-            if (pbData != null)
-            {
-                // Create a protected key store and save the encrypted key in a file. If the file was saved
-                // successfully and the user selected "Yes" when asked whether to create an emergency recovery
-                // key file, proceed with creating it.
-                result = CreateAndStoreProtectedKeyStore(dbPath, pbData);
-                if (result && Helper.DisplayMessage(Resources.ProtectedKeyStoreCreatedAfterConversion,
-                        KeePassProtectedKeyStoreExt.PluginName,
-                        string.Empty,
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Asterisk) == DialogResult.Yes)
-                    EmergencyKeyRecoveryFile.CreateEmergencyRecoveryKeyFile(dbPath, pbData, exclusive);
+            dbPath = string.Empty;
+            exclusive = false;
 
-                // Wipe out the unencrypted copy of the data.
-                MemUtil.ZeroArray(pbData);
-            }
+            using (ProtectedKeyStoreTypeDialog dlg = new ProtectedKeyStoreTypeDialog())
+                if (dlg.ShowDialog() == DialogResult.OK)
+                {
+                    PwDatabase pd = Program.MainForm.ActiveDatabase;
+                    byte[] pbData = GetSelectedCompositeKeyData(pd.MasterKey, out exclusive);
+
+                    // If pbData == null, the user canceled the operation.
+                    if (pbData != null)
+                    {
+                        // Get the database path associated with the protected key store. If the user chose the
+                        // default protected key store, use the default database name.
+                        dbPath = dlg.IndividualProtectedKeyStore ? pd.IOConnectionInfo.Path : Helper.DefaultProtectedKeyStoreName;
+
+                        // Create a protected key store and save the encrypted key in a file. If the file was saved
+                        // successfully and the user selected "Yes" when asked whether to create an emergency recovery
+                        // key file, proceed with creating it.
+                        result = CreateAndStoreProtectedKeyStore(dbPath, pbData);
+                        if (result && Helper.DisplayMessage(Resources.ProtectedKeyStoreCreatedAfterConversion,
+                                Helper.PluginName,
+                                string.Empty,
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Information) == DialogResult.Yes)
+                            EmergencyKeyRecoveryFile.CreateEmergencyRecoveryKeyFile(dbPath, pbData, exclusive);
+
+                        // Wipe out the unencrypted copy of the data.
+                        MemUtil.ZeroArray(pbData);
+                    }
+                }
 
             return result;
         }
@@ -122,7 +133,7 @@ namespace KeePassProtectedKeyStore
                 byte[] pbProtectedKey = ProtectedData.Protect(pbData, Entropy, DataProtectionScope.CurrentUser);
 
                 // Attempt to save the protected key store in a file.
-                result = AppDataStore.SetProtectedKeyStore(dbPath, pbProtectedKey);
+                result = AppDataStore.SetProtectedKeyStore(dbPath, pbData, pbProtectedKey);
             }
             catch (Exception exc)
             {
@@ -137,7 +148,7 @@ namespace KeePassProtectedKeyStore
         // will display a popup to the user if it cannot find a key file. ProtectedData.Unprotect will throw
         // an exception if a decryption error occurs, causing the caught exception to display a popup and for
         // this method to return null. KeePass assumes we will notify the user of any errors.
-        public static byte[] GetProtectedKeyStoreForDatabase(string dbPath)
+        public static byte[] GetProtectedKeyStore(string dbPath)
         {
             byte[] pbProtectedKey = AppDataStore.GetProtectedKeyStore(dbPath);
             byte[] pbData = null;

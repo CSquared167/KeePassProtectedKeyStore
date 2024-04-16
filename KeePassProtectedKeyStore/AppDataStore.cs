@@ -1,6 +1,8 @@
-﻿using KeePassProtectedKeyStore.Properties;
+﻿using KeePassLib.Utility;
+using KeePassProtectedKeyStore.Properties;
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
@@ -16,7 +18,7 @@ namespace KeePassProtectedKeyStore
 
         // AppData Product path for this plugin
         private static string KeePassProtectedKeyStoreProductPath { get; } =
-            Path.Combine(KeePassProtectedKeyStoreCompanyPath, KeePassProtectedKeyStoreExt.PluginName);
+            Path.Combine(KeePassProtectedKeyStoreCompanyPath, Helper.PluginName);
 
         // AppData configuration file path for this plugin
         private static string PluginConfigurationFileName =>
@@ -32,32 +34,53 @@ namespace KeePassProtectedKeyStore
             {
                 pbProtectedKeyStore = File.ReadAllBytes(protectedKeyStoreFilePath);
             }
-            catch (Exception exc)
+            catch
             {
-                // The most likely scenario for getting here is if a protected key store file doesn't exist.
-				// This will happen in cases where the user selects this plugin as the "Key/file provider"
-				// authentication method without having created the protected key store file.
-                DisplayExceptionMessage(exc, "accessing protected key store");
+                // Do not display a message or take any other action if, for example, the
+                // protected key store file doesn't exist. KeePass itself will eventually
+                // display a meaningful error message to the user.
             }
 
             return pbProtectedKeyStore;
         }
 
         // Method to store the protected key store in the AppData store.
-        public static bool SetProtectedKeyStore(string dbPath, byte[] pbProtectedKeyStore)
+        public static bool SetProtectedKeyStore(string dbPath, byte[] pbUnprotectedKey, byte[] pbProtectedKey)
         {
             string protectedKeyStoreFilePath = BuildProtectedKeyStoreFilePath(dbPath);
+            byte[] pbData = null;
+            bool writeFile = true;
             bool result = false;
 
-            // Proceed only if a file does not exist for the specified database or if the user agrees
-            // to overwrite the existing one.
-            if (!File.Exists(protectedKeyStoreFilePath) ||
-                Helper.DisplayMessage(Resources.OverwriteProtectedKeyStoreFilePrompt,
-                    string.Empty,
-                    string.Empty,
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question,
-                    MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+            if (File.Exists(protectedKeyStoreFilePath))
+            {
+                // A protected key store file already exists. Attempt to get the unencrypted contents.
+                pbData = ProtectedKeyStore.GetProtectedKeyStore(dbPath);
+                if (pbData != null)
+                {
+                    // If the existing file has the same key as the new one, tell the user that a new
+                    // file does not need to be created. If the keys are different, warn the user
+                    // about replacing the existing file and ask whether to proceed.
+                    DialogResult dialogResult = Enumerable.SequenceEqual(pbData, pbUnprotectedKey) ?
+                        Helper.DisplayMessage(Resources.ProtectedKeyStoreExistsAndIsSame,
+                            string.Empty,
+                            string.Empty,
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information) :
+                        Helper.DisplayMessage(Resources.ProtectedKeyStoreExistsAndIsDifferent,
+                            string.Empty,
+                            string.Empty,
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Warning,
+                            MessageBoxDefaultButton.Button2);
+
+                    // Write the file only if the user responded yes to replacing the existing file.
+                    writeFile = dialogResult == DialogResult.Yes;
+                }
+            }
+
+            // Proceed only if a file does not exist or if the user agrees to overwrite it.
+            if (writeFile)
             {
                 try
                 {
@@ -66,7 +89,7 @@ namespace KeePassProtectedKeyStore
                     // filename.
                     Directory.CreateDirectory(KeePassProtectedKeyStoreCompanyPath);
                     Directory.CreateDirectory(KeePassProtectedKeyStoreProductPath);
-                    File.WriteAllBytes(protectedKeyStoreFilePath, pbProtectedKeyStore);
+                    File.WriteAllBytes(protectedKeyStoreFilePath, pbProtectedKey);
                     result = true;
                 }
                 catch (Exception exc)
@@ -75,7 +98,35 @@ namespace KeePassProtectedKeyStore
                 }
             }
 
+            // Because pbData contains the unencrypted key, we need to clear the array so it does
+            // not persist in memory.
+            if (pbData != null)
+                MemUtil.ZeroArray(pbData);
+
             return result;
+        }
+
+        // Method to delete the protected key store for the specified database.
+        public static void DeleteProtectedKeyStore(string dbPath)
+        {
+            string protectedKeyStoreFilePath = BuildProtectedKeyStoreFilePath(dbPath);
+
+            try
+            {
+                File.Delete(protectedKeyStoreFilePath);
+            }
+            catch (FileNotFoundException)
+            {
+                // Ignore
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // Ignore
+            }
+            catch (Exception exc)
+            {
+                DisplayExceptionMessage(exc, "deleting protected key store");
+            }
         }
 
         // Method to build the protected key store file path and filename.

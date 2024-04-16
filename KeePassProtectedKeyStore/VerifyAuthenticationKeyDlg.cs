@@ -110,7 +110,7 @@ namespace KeePassProtectedKeyStore
                 {
                     Helper.DisplayMessage(Resources.KeyFileProviderWarning,
                         GetUserKeyTypeDescription(UserKeyDictionary[KeyFileProviderListBoxIndex]),
-                        KeePassProtectedKeyStoreExt.PluginName,
+                        Helper.PluginName,
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
 
