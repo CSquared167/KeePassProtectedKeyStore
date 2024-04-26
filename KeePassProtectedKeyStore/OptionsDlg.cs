@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using KeePassLib.Utility;
 using System.Diagnostics;
+using Windows.Security.Credentials;
 
 namespace KeePassProtectedKeyStore
 {
@@ -14,7 +15,11 @@ namespace KeePassProtectedKeyStore
         public OptionsDlg()
         {
             InitializeComponent();
+        }
 
+        // Load event handler for dialog.
+        private async void OptionsDlg_Load(object sender, EventArgs e)
+        {
             PwDatabase pd = Program.MainForm.ActiveDatabase;
             string dbPath = pd?.IOConnectionInfo?.Path ?? string.Empty;
             CompositeKey compositeKey = pd?.MasterKey;
@@ -36,6 +41,18 @@ namespace KeePassProtectedKeyStore
             // now rather than at design time, so we don't end up updating/saving the configuration file
             // needlessly.
             CheckBoxAutoLoginByDefault.CheckedChanged += CheckBoxAutoLoginByDefault_CheckedChanged;
+
+            // Show CheckBoxUseWindowsHelloEncryption and GroupBoxWindowsHello only if Windows Hello is supported.
+            // Set the check depending on whether the user has previously requested to use Windows Hello.
+            CheckBoxUseWindowsHelloEncryption.Visible = await KeyCredentialManager.IsSupportedAsync();
+            CheckBoxUseWindowsHelloEncryption.Checked = PluginConfiguration.Instance.UseWindowsHelloEncryption;
+            GroupBoxWindowsHello.Visible = CheckBoxUseWindowsHelloEncryption.Visible;
+
+            // Setting CheckBoxUseWindowsHelloEncryption.Checked fires an "CheckedChanged" event. Because we are
+            // initializing the checkbox and not updating it, the "CheckedChanged" event handler is enabled
+            // now rather than at design time, so we don't end up updating/saving the configuration file
+            // needlessly.
+            CheckBoxUseWindowsHelloEncryption.CheckedChanged += CheckBoxUseWindowsHelloEncryption_CheckedChanged;
 
             // Populate the auto-login listbox.
             PopulateAutoLoginsListBox();
@@ -71,6 +88,45 @@ namespace KeePassProtectedKeyStore
         // is enabled by default when a protected key store is created.
         private void CheckBoxAutoLoginByDefault_CheckedChanged(object sender, EventArgs e) =>
             PluginConfiguration.Instance.AutoLoginByDefault = CheckBoxAutoLoginByDefault.Checked;
+
+        // Handler for when the user changes the checkbox to indicate whether to use
+        // WIndows Hello for encryption operations.
+        private void CheckBoxUseWindowsHelloEncryption_CheckedChanged(object sender, EventArgs e)
+        {
+            PluginConfiguration pluginConfiguration = PluginConfiguration.Instance;
+            bool useWindowsHelloEncryption = CheckBoxUseWindowsHelloEncryption.Checked;
+            EncryptionEngine encryptionEngineSrc = EncryptionEngine.NewInstance;
+            EncryptionEngine encryptionEngineDest = useWindowsHelloEncryption ?
+                new EncryptionEngineUsingWindowsHello() as EncryptionEngine :
+                new EncryptionEngineUsingDataProtectionAPI();
+            string[] protectedKeyStoreFileNames = encryptionEngineSrc.ProtectedKeyStoreFileNames;
+            bool conversionSuccessful = true;
+
+            for (int i = 0; i < protectedKeyStoreFileNames.Length && conversionSuccessful; i++)
+            {
+                string protectedKeyStoreFile = protectedKeyStoreFileNames[i];
+                byte[] pbData = encryptionEngineSrc.Decrypt(protectedKeyStoreFile);
+
+                conversionSuccessful = pbData != null && encryptionEngineDest.Encrypt(protectedKeyStoreFile, pbData);
+                if (pbData != null)
+                    MemUtil.ZeroArray(pbData);
+            }
+
+            if (conversionSuccessful)
+            {
+                encryptionEngineSrc.DeleteProtectedKeyStoreFiles(protectedKeyStoreFileNames);
+
+                pluginConfiguration.UseWindowsHelloEncryption = useWindowsHelloEncryption;
+            }
+            else
+            {
+                encryptionEngineDest.DeleteProtectedKeyStoreFiles(protectedKeyStoreFileNames);
+
+                CheckBoxUseWindowsHelloEncryption.CheckedChanged -= CheckBoxUseWindowsHelloEncryption_CheckedChanged;
+                CheckBoxUseWindowsHelloEncryption.Checked = !useWindowsHelloEncryption;
+                CheckBoxUseWindowsHelloEncryption.CheckedChanged += CheckBoxUseWindowsHelloEncryption_CheckedChanged;
+            }
+        }
 
         // Handler for when the user clicks the Help button.
         private void ButtonHelp_Click(object sender, EventArgs e) =>

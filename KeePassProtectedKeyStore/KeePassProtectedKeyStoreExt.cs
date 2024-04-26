@@ -194,7 +194,7 @@ namespace KeePassProtectedKeyStore
                     // use the default key, delete the protected key store file associated with this database
                     // (if it exists).
                     if (userKey == null || Helper.CreateNewKeyRequestingDefaultKey)
-                        AppDataStore.DeleteProtectedKeyStore(dbPathFromFieldInfo);
+                        EncryptionEngine.NewInstance.DeleteProtectedKeyStoreFiles(new string[] { dbPathFromFieldInfo });
 
                     if (!Helper.CreateNewKeyUsingExistingKey && userKey != null)
                     {

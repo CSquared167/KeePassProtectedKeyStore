@@ -20,6 +20,8 @@ namespace KeePassProtectedKeyStore
 
         private static string LastDirectoryNodeName => "LastDirectory";
 
+        private static string UseWindowsHelloEncryptionNodeName => "UseWindowsHelloEncryption";
+
         private static string AutoLoginOptionsNodeName => "AutoLoginOptions";
 
         private static string AutoLoginByDefaultNodeName => "AutoLoginByDefault";
@@ -86,6 +88,14 @@ namespace KeePassProtectedKeyStore
             if (LastDirectoryNode == null)
                 RootNode.AppendChild(Document.CreateElement(LastDirectoryNodeName));
 
+            if (UseWindowsHelloEncryptionNode == null)
+            {
+                XmlNode useWindowsHelloEncryptionNode = Document.CreateElement(UseWindowsHelloEncryptionNodeName);
+
+                useWindowsHelloEncryptionNode.InnerText = false.ToString();
+                RootNode.AppendChild(useWindowsHelloEncryptionNode);
+            }
+
             if (AutoLoginOptionsNode == null)
                 RootNode.AppendChild(Document.CreateElement(AutoLoginOptionsNodeName));
 
@@ -112,6 +122,23 @@ namespace KeePassProtectedKeyStore
                 if (LastDirectoryNode != null)
                 {
                     LastDirectoryNode.InnerText = value.ToString();
+
+                    // Because the setter doesn't return a value, the LastError member variable is set
+                    // depending on whether the configuration file was written successfully.
+                    LastError = AppDataStore.SetPluginConfiguration(Document.OuterXml);
+                }
+            }
+        }
+
+        // UseWindowsHelloEncryption property.
+        public bool UseWindowsHelloEncryption
+        {
+            get => Convert.ToBoolean(UseWindowsHelloEncryptionNode?.InnerText ?? false.ToString());
+            set
+            {
+                if (UseWindowsHelloEncryptionNode != null)
+                {
+                    UseWindowsHelloEncryptionNode.InnerText = value.ToString();
 
                     // Because the setter doesn't return a value, the LastError member variable is set
                     // depending on whether the configuration file was written successfully.
@@ -272,6 +299,9 @@ namespace KeePassProtectedKeyStore
         // Method to return the document's LastDirectory node.
         private XmlNode LastDirectoryNode =>
             RootNode?.SelectSingleNode(LastDirectoryNodeName);
+
+        private XmlNode UseWindowsHelloEncryptionNode =>
+            RootNode?.SelectSingleNode(UseWindowsHelloEncryptionNodeName);
 
         // Method to return the document's AutoLoginOptions node.
         private XmlNode AutoLoginOptionsNode =>

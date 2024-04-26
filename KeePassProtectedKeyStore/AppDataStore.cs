@@ -11,6 +11,9 @@ namespace KeePassProtectedKeyStore
 {
     internal static class AppDataStore
     {
+        // Protected key store file extension.
+        private static string ProtectedKeyStoreFileExtension => ".bin";
+
         // AppData Company path for this plugin
         private static string KeePassProtectedKeyStoreCompanyPath { get; } =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -24,10 +27,22 @@ namespace KeePassProtectedKeyStore
         private static string PluginConfigurationFileName =>
             Path.Combine(KeePassProtectedKeyStoreProductPath, "config.xml");
 
-        // Method to return the protected key store for the specified database.
-        public static byte[] GetProtectedKeyStore(string dbPath)
+        // Method to return a list of protected key store filenames.
+        public static string[] GetProtectedKeyStores(string protectedKeyStoreSubFolder)
         {
-            string protectedKeyStoreFilePath = BuildProtectedKeyStoreFilePath(dbPath);
+            string protectedKeyStoreProductPath = GetProtectedKeyStoreProductPath(protectedKeyStoreSubFolder);
+
+            return Directory.Exists(protectedKeyStoreProductPath) ?
+                Directory.GetFiles(protectedKeyStoreProductPath, string.Format("*{0}", ProtectedKeyStoreFileExtension))
+                    .Select(path => Path.GetFileName(path))
+                    .ToArray() :
+                new string[0];
+        }
+
+        // Method to return the protected key store for the specified database.
+        public static byte[] GetProtectedKeyStore(string dbPath, string protectedKeyStoreSubFolder)
+        {
+            string protectedKeyStoreFilePath = BuildProtectedKeyStoreFilePath(dbPath, protectedKeyStoreSubFolder);
             byte[] pbProtectedKeyStore = null;
 
             try
@@ -45,14 +60,14 @@ namespace KeePassProtectedKeyStore
         }
 
         // Method to store the protected key store in the AppData store.
-        public static bool SetProtectedKeyStore(string dbPath, byte[] pbUnprotectedKey, byte[] pbProtectedKey)
+        public static bool SetProtectedKeyStore(string dbPath, byte[] pbUnprotectedKey, byte[] pbProtectedKey, string protectedKeyStoreSubFolder)
         {
-            string protectedKeyStoreFilePath = BuildProtectedKeyStoreFilePath(dbPath);
+            string protectedKeyStoreFilePath = BuildProtectedKeyStoreFilePath(dbPath, protectedKeyStoreSubFolder);
             byte[] pbData = null;
-            bool writeFile = true;
+            bool writeFile = pbUnprotectedKey != null && pbProtectedKey != null;
             bool result = false;
 
-            if (File.Exists(protectedKeyStoreFilePath))
+            if (writeFile && File.Exists(protectedKeyStoreFilePath))
             {
                 // A protected key store file already exists. Attempt to get the unencrypted contents.
                 pbData = ProtectedKeyStore.GetProtectedKeyStore(dbPath);
@@ -84,11 +99,8 @@ namespace KeePassProtectedKeyStore
             {
                 try
                 {
-                    // Create the company and product subfolders (the calls to CreateDirectory will not
-                    // fail if the folders already exist), and write the encrypted data to the specified
-                    // filename.
-                    Directory.CreateDirectory(KeePassProtectedKeyStoreCompanyPath);
-                    Directory.CreateDirectory(KeePassProtectedKeyStoreProductPath);
+                    // Write the encrypted data to the specified filename. It is assumed the parent folder
+                    // of protectedKeyStoreFilePath already exists.
                     File.WriteAllBytes(protectedKeyStoreFilePath, pbProtectedKey);
                     result = true;
                 }
@@ -107,9 +119,10 @@ namespace KeePassProtectedKeyStore
         }
 
         // Method to delete the protected key store for the specified database.
-        public static void DeleteProtectedKeyStore(string dbPath)
+        public static bool DeleteProtectedKeyStore(string dbPath, string protectedKeyStoreSubFolder)
         {
-            string protectedKeyStoreFilePath = BuildProtectedKeyStoreFilePath(dbPath);
+            string protectedKeyStoreFilePath = BuildProtectedKeyStoreFilePath(dbPath, protectedKeyStoreSubFolder);
+            bool result = true;
 
             try
             {
@@ -126,20 +139,45 @@ namespace KeePassProtectedKeyStore
             catch (Exception exc)
             {
                 DisplayExceptionMessage(exc, "deleting protected key store");
+                result = false;
             }
+
+            return result;
         }
 
         // Method to build the protected key store file path and filename.
-        private static string BuildProtectedKeyStoreFilePath(string dbPath)
+        private static string BuildProtectedKeyStoreFilePath(string dbPath, string protectedKeyStoreSubFolder)
         {
-            // Compute the MD5 hash of the database file path/name and use the hash value + ".bin" as the
-            // filename for the key file. Use UTF32 encoding in case the database file path/name includes
-            // extended characters. Convert the database path to lowercase so the hash is always computed
-            // consistently for the same database path.
-            byte[] pbHash = Helper.MD5HashData(Encoding.UTF32.GetBytes(dbPath.ToLower()));
-            string protectedKeyStoreFileName = Helper.ByteArrayToString(pbHash) + ".bin";
+            string protectedKeyStoreFileName = dbPath;
+            string protectedKeyStoreProductPath = GetProtectedKeyStoreProductPath(protectedKeyStoreSubFolder);
 
-            return Path.Combine(KeePassProtectedKeyStoreProductPath, protectedKeyStoreFileName);
+            // Check whether dbPath contains the filename of the protected key store file itself.
+            if (Path.GetExtension(dbPath).Trim().ToLower() != ProtectedKeyStoreFileExtension)
+            {
+                // Compute the MD5 hash of the database file path/name and use the hash value as the filename
+                // for the key file. Use UTF32 encoding in case the database file path/name includes extended
+                // characters. Convert the database path to lowercase so the hash is always computed
+                // consistently for the same database path.
+                byte[] pbHash = Helper.MD5HashData(Encoding.UTF32.GetBytes(dbPath.ToLower()));
+
+                protectedKeyStoreFileName = Helper.ByteArrayToString(pbHash) + ProtectedKeyStoreFileExtension;
+            }
+
+            return Path.Combine(protectedKeyStoreProductPath, protectedKeyStoreFileName);
+        }
+
+        // Method to get the protected key store product path for the specified protected key store
+        // subfolder. The folder hierarchy is created in case they do not exist. CreateDirectory will
+        // not throw an exception if the folder already exists.
+        private static string GetProtectedKeyStoreProductPath(string protectedKeyStoreSubFolder)
+        {
+            string protectedKeyStoreProductPath = Path.Combine(KeePassProtectedKeyStoreProductPath, protectedKeyStoreSubFolder);
+
+            Directory.CreateDirectory(KeePassProtectedKeyStoreCompanyPath);
+            Directory.CreateDirectory(KeePassProtectedKeyStoreProductPath);
+            Directory.CreateDirectory(protectedKeyStoreProductPath);
+
+            return protectedKeyStoreProductPath;
         }
 
         // Method to read the plugin configuration file.
@@ -175,10 +213,9 @@ namespace KeePassProtectedKeyStore
 
             try
             {
-                // Create the company and product subfolders (the calls to CreateDirectory will not
-                // fail if the folders already exist), and write the plugin configuration file.
-                Directory.CreateDirectory(KeePassProtectedKeyStoreCompanyPath);
-                Directory.CreateDirectory(KeePassProtectedKeyStoreProductPath);
+                // Write the plugin configuration file. It is assumed the parent folder
+                // of PluginConfigurationFileName already exists.
+
                 File.WriteAllText(PluginConfigurationFileName, xml);
             }
             catch (Exception exc)

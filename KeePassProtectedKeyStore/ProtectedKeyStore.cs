@@ -11,13 +11,6 @@ namespace KeePassProtectedKeyStore
 {
     internal static class ProtectedKeyStore
     {
-        // Additional entropy to increase the complexity of the encryption.
-        private static byte[] Entropy { get; } = new byte[]
-        {
-            0xF7, 0x72, 0x93, 0x27, 0x62, 0xAF, 0x4F, 0x2B,
-            0x87, 0x32, 0xE8, 0x0B, 0x92, 0x33, 0x0A, 0x06
-        };
-
         // Method to determine whether this database already has a protected key store authentication
         // method. Returns the IUserKey if one exists, or else it returns null.
         public static IUserKey FindProtectedKeyStoreInCompositeKey(CompositeKey compositeKey, out bool exclusive)
@@ -117,53 +110,14 @@ namespace KeePassProtectedKeyStore
             return pbData;
         }
 
-        // Method to encrypt the specified byte data and save it in a file. ProtectedData.Protect will throw an
-        // exception if anything goes wrong (e.g., encryption failed, OS does not support this method, etc.),
-        // which means AppDataStore.SetProtectedKeyStore will not be called.
-        public static bool CreateAndStoreProtectedKeyStore(string dbPath, byte[] pbData)
-        {
-            bool result = false;
+        // Method to encrypt the specified byte data and save it in a file. The EncryptionEngine instance will
+        // handle any exceptions and will return false if the operation did not complete.
+        public static bool CreateAndStoreProtectedKeyStore(string dbPath, byte[] pbData) =>
+            EncryptionEngine.NewInstance.Encrypt(dbPath, pbData);
 
-            try
-            {
-                // Utilize the computer's Trusted Platform Module (TPM) to encrypt the data. The encrypted key is
-                // valid only for the currently logged-in user and will not be valid if the user's computer is
-                // rebuilt or if the user purchases a new computer. In such cases, the user should have previously
-                // created an emergency key recovery file and can import it if this key is no longer valid.
-                byte[] pbProtectedKey = ProtectedData.Protect(pbData, Entropy, DataProtectionScope.CurrentUser);
-
-                // Attempt to save the protected key store in a file.
-                result = AppDataStore.SetProtectedKeyStore(dbPath, pbData, pbProtectedKey);
-            }
-            catch (Exception exc)
-            {
-                // In these cases, exc.Message will be sufficient to display to the user.
-                Helper.DisplayMessage(Resources.ProtectedKeyStoreCreateError, exc.Message);
-            }
-
-            return result;
-        }
-
-        // Method to return a protected key store for the specified database. AppDataStore.GetProtectedKeyStore
-        // will display a popup to the user if it cannot find a key file. ProtectedData.Unprotect will throw
-        // an exception if a decryption error occurs, causing the caught exception to display a popup and for
-        // this method to return null. KeePass assumes we will notify the user of any errors.
-        public static byte[] GetProtectedKeyStore(string dbPath)
-        {
-            byte[] pbProtectedKey = AppDataStore.GetProtectedKeyStore(dbPath);
-            byte[] pbData = null;
-
-            try
-            {
-                if (pbProtectedKey != null)
-                    pbData = ProtectedData.Unprotect(pbProtectedKey, Entropy, DataProtectionScope.CurrentUser);
-            }
-            catch (Exception exc)
-            {
-                Helper.DisplayMessage(Resources.ProtectedKeyStoreDecryptError, exc.Message);
-            }
-
-            return pbData;
-        }
+        // Method to return a protected key store for the specified database. The EncryptionEngine instance will
+        // handle any exceptions and will return null if the operation did not complete.
+        public static byte[] GetProtectedKeyStore(string dbPath) =>
+            EncryptionEngine.NewInstance.Decrypt(dbPath);
     }
 }

@@ -36,7 +36,10 @@
             this.ButtonHelp = new System.Windows.Forms.Button();
             this.GroupBoxAutoLogin = new System.Windows.Forms.GroupBox();
             this.CheckBoxAutoLoginByDefault = new System.Windows.Forms.CheckBox();
+            this.GroupBoxWindowsHello = new System.Windows.Forms.GroupBox();
+            this.CheckBoxUseWindowsHelloEncryption = new System.Windows.Forms.CheckBox();
             this.GroupBoxAutoLogin.SuspendLayout();
+            this.GroupBoxWindowsHello.SuspendLayout();
             this.SuspendLayout();
             // 
             // ButtonConvert
@@ -92,7 +95,7 @@
             // 
             // ButtonHelp
             // 
-            this.ButtonHelp.Location = new System.Drawing.Point(50, 605);
+            this.ButtonHelp.Location = new System.Drawing.Point(50, 715);
             this.ButtonHelp.Name = "ButtonHelp";
             this.ButtonHelp.Size = new System.Drawing.Size(150, 40);
             this.ButtonHelp.TabIndex = 6;
@@ -122,11 +125,32 @@
             this.CheckBoxAutoLoginByDefault.Text = "Enable auto-login by default when a protected key store is created";
             this.CheckBoxAutoLoginByDefault.UseVisualStyleBackColor = true;
             // 
+            // GroupBoxWindowsHello
+            // 
+            this.GroupBoxWindowsHello.Controls.Add(this.CheckBoxUseWindowsHelloEncryption);
+            this.GroupBoxWindowsHello.Location = new System.Drawing.Point(50, 599);
+            this.GroupBoxWindowsHello.Name = "GroupBoxWindowsHello";
+            this.GroupBoxWindowsHello.Size = new System.Drawing.Size(810, 100);
+            this.GroupBoxWindowsHello.TabIndex = 8;
+            this.GroupBoxWindowsHello.TabStop = false;
+            this.GroupBoxWindowsHello.Text = "Windows Hello Protection:";
+            // 
+            // CheckBoxUseWindowsHelloEncryption
+            // 
+            this.CheckBoxUseWindowsHelloEncryption.AutoSize = true;
+            this.CheckBoxUseWindowsHelloEncryption.Location = new System.Drawing.Point(25, 45);
+            this.CheckBoxUseWindowsHelloEncryption.Name = "CheckBoxUseWindowsHelloEncryption";
+            this.CheckBoxUseWindowsHelloEncryption.Size = new System.Drawing.Size(669, 33);
+            this.CheckBoxUseWindowsHelloEncryption.TabIndex = 0;
+            this.CheckBoxUseWindowsHelloEncryption.Text = "Use Windows Hello to create and use protected key stores";
+            this.CheckBoxUseWindowsHelloEncryption.UseVisualStyleBackColor = true;
+            // 
             // OptionsDlg
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(14F, 29F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(924, 659);
+            this.ClientSize = new System.Drawing.Size(924, 769);
+            this.Controls.Add(this.GroupBoxWindowsHello);
             this.Controls.Add(this.GroupBoxAutoLogin);
             this.Controls.Add(this.ButtonHelp);
             this.Controls.Add(this.ButtonImportEmergencyFile);
@@ -142,8 +166,11 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "KeePassProtectedKeyStore Options";
+            this.Load += new System.EventHandler(this.OptionsDlg_Load);
             this.GroupBoxAutoLogin.ResumeLayout(false);
             this.GroupBoxAutoLogin.PerformLayout();
+            this.GroupBoxWindowsHello.ResumeLayout(false);
+            this.GroupBoxWindowsHello.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -158,5 +185,7 @@
         private System.Windows.Forms.Button ButtonHelp;
         private System.Windows.Forms.GroupBox GroupBoxAutoLogin;
         private System.Windows.Forms.CheckBox CheckBoxAutoLoginByDefault;
+        private System.Windows.Forms.GroupBox GroupBoxWindowsHello;
+        private System.Windows.Forms.CheckBox CheckBoxUseWindowsHelloEncryption;
     }
 }
