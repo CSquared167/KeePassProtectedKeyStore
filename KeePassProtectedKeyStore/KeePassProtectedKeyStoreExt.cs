@@ -7,8 +7,6 @@ using KeePassLib.Keys;
 using KeePassLib.Serialization;
 using KeePassLib.Utility;
 using System;
-using System.ComponentModel;
-using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Windows.Forms;
 

@@ -3,8 +3,6 @@ using KeePassLib.Keys;
 using KeePassLib.Utility;
 using KeePassLib;
 using KeePassProtectedKeyStore.Properties;
-using System;
-using System.Security.Cryptography;
 using System.Windows.Forms;
 
 namespace KeePassProtectedKeyStore
