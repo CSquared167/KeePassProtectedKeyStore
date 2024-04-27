@@ -4,13 +4,14 @@
 [![Github All Releases](https://img.shields.io/github/downloads/CSquared167/KeePassProtectedKeyStore/total.svg)](https://github.com/CSquared167/KeePassProtectedKeyStore/releases)
 [![License](https://img.shields.io/github/license/CSquared167/KeePassProtectedKeyStore.svg)](https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/LICENSE)
 
-This plugin for [KeePass 2][KeePass] password manager uses the computer's [Trusted Platform Module] (TPM) hardware to create protected key stores. The encrypted key store files are stored in the `%LOCALAPPDATA%\CSquared167\KeePassProtectedKeyStore` folder.
+This plugin for [KeePass 2][KeePass] password manager uses the computer's [Trusted Platform Module] (TPM) hardware to create protected key stores. The encrypted protected key store files are stored in the `%LOCALAPPDATA%\CSquared167\KeePassProtectedKeyStore` folder. For additional security, the user can choose to use [Windows Hello] to access the protected key stores.
 
 KeePassProtectedKeyStore includes the following functionality:
 - [Convert](#creating-a-protected-key-store) one or more existing authentication keys (master password, Windows user account, and/or a key/file provider) to a protected key store.
 - [Create](#creating-an-emergency-key-recovery-file) an emergency key recovery file, in case the protected key store is [no longer available](#when-a-protected-key-store-is-no-longer-available).
 - [Import](#importing-an-emergency-key-recovery-file) an emergency key recovery file to recreate a protected key store that is [no longer available](#when-a-protected-key-store-is-no-longer-available).
 - [Auto-login](#auto-login-options) to a database for which a protected key store is the only authentication key.
+- [Use Windows Hello](#using-windows-hello-as-an-additional-level-of-security-for-protected-key-stores) as an additional level of security for protected key stores.
 - [Create or reuse](#creating-a-new-master-key-including-the-keepassprotectedkeystore-key-provider) a protected key store when you either create a new database or change the master password of an existing database, and the new master key includes the KeePassProtectedKeyStore key provider.
 
 For users with multiple databases, KeePassProtectedKeyStore can maintain separate protected key stores for each database. For users who have either a single database or multiple databases with the same master key, this plugin can maintain a single default protected key store.
@@ -19,6 +20,7 @@ If a shared database is being used (e.g., the database resides on a NAS filesyst
 
 [KeePass]: https://keepass.info/
 [Trusted Platform Module]: https://en.wikipedia.org/wiki/Trusted_Platform_Module
+[Windows Hello]: https://support.microsoft.com/en-us/windows/learn-about-windows-hello-and-set-it-up-dae28983-8242-bb2a-d3d1-87c9d265a5f0
 
 ## When a Protected Key Store is No Longer Available:
 One explanation of when a protected key store is no longer available is when the encrypted key store files become corrupted or are deleted.
@@ -44,7 +46,7 @@ KeePassProtectedKeyStore cannot help you if you lose access to your database bec
 - Click the `Open Folder` button. This will open a Windows Explorer window, set to the location of KeePass' Plugins folder.
 - Move or copy KeePassProtectedKeyStore.dll to the Plugins folder. You will probably get a message stating you will need to provide administrator permission. Click on whichever button allows the move/copy to complete.
 
-[binLink]: https://github.com/CSquared167/KeePassProtectedKeyStore/releases "Plugin Releases"
+[binLink]: https://github.com/CSquared167/KeePassProtectedKeyStore/releases
 
 ## Options:
 The KeePassProtectedKeyStore options are available from KeePass' `Tools` menu:
@@ -132,6 +134,20 @@ The original authentication key(s) that had been converted to the protected key 
 The auto-login functionality was inspired by Jeremy Bourgin's [KeePassAutoUnlock] plugin.
 
 [KeePassAutoUnlock]: https://github.com/jeremy-bourgin/KeePassAutoUnlock
+
+## Using Windows Hello as an Additional Level of Security for Protected Key Stores:
+
+By default, KeePassProtectedKeyStore uses Microsoft's [Data Protection Application Programming Interface (DPAPI)][dpapi] to encrypt and decrypt the protected key stores. While DPAPI already affords a robust level of security, anyone who gains access to an already logged-in computer can open the database, especially when auto-login is enabled. For an additional level of security, the user can enable the use of [Windows Hello] to create and use protected key stores. If Windows Hello is configured on the user's computer, Windows will prompt the user to authenticate the request (via PIN, fingerprint, facial recognition, Microsoft Authenticator app, etc.) before allowing access to the protected key store.
+
+Enabling/disabling Windows Hello is done by toggling the appropriate checkbox on the Options dialog, as seen in the following:
+
+<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/OptionsDialogWindowsHelloSelected.png?raw=true" />
+
+If Windows Hello is not supported or not set up, the checkbox will not be available, as seen in the following:
+
+<img src="https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/Screenshots/OptionsDialogWindowsHelloNotSupported.png?raw=true" />
+
+[dpapi]: https://en.wikipedia.org/wiki/Data_Protection_API
 
 ## Creating a New Master Key Including the KeePassProtectedKeyStore Key Provider:
 If you create a new database or change the master key for an existing database, and you include the KeePassProtectedKeyStore key provider as part of the master key, KeePassProtectedKeyStore will prompt for the type of protected key store you wish to create:

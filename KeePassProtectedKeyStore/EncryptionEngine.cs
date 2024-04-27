@@ -7,6 +7,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using Windows.Security.Credentials;
 using Windows.Security.Cryptography;
 using Windows.Security.Cryptography.Core;
@@ -53,7 +54,7 @@ namespace KeePassProtectedKeyStore
                 byte[] pbProtectedKey = DoEncrypt(pbData);
 
                 // Attempt to save the protected key store in a file.
-                result = AppDataStore.SetProtectedKeyStore(dbPath, pbData, pbProtectedKey, ProtectedKeyStoreSubFolder);
+                result = AppDataStore.SetProtectedKeyStore(dbPath, pbData, pbProtectedKey, ProtectedKeyStoreSubFolder, this);
             }
             catch (Exception exc)
             {
@@ -139,7 +140,7 @@ namespace KeePassProtectedKeyStore
         private static int WindowsHelloDialogSleepInterval => 100;
 
         // Number of retries to poll for existence of Windows Hello dialog.
-        private static int WindowsHelloDialogRetries => 15000 / WindowsHelloDialogSleepInterval;
+        private static int WindowsHelloDialogRetries => 30000 / WindowsHelloDialogSleepInterval;
 
         // Overridden AppDataStore subfolder for protected key store files.
         protected override string ProtectedKeyStoreSubFolder => "WindowsHello";
@@ -190,13 +191,19 @@ namespace KeePassProtectedKeyStore
                     retrievalResult = await KeyCredentialManager.RequestCreateAsync(Helper.PluginName, KeyCredentialCreationOption.ReplaceExisting);
                 if (retrievalResult.Status == KeyCredentialStatus.Success)
                 {
-                    // Kickoff thread to circumvent Windows Hello anomalies.
-                    _ = Task.Run(() => CircumventWindowsHelloAnomalies());
+                    // Kickoff worker thread to circumvent Windows Hello anomalies. Pass in a manual reset event
+                    // so the thread will keeep executing until it gets a signal to exit.
+                    ManualResetEventSlim exitThreadEvent = new ManualResetEventSlim(false);
+
+                    _ = Task.Run(() => CircumventWindowsHelloAnomalies(exitThreadEvent));
 
                     // Attempt to sign the sign key using the user's credentials. This is where the user is prompted
                     // with the Windows Hello verification screen.
                     IBuffer dataToSign = CryptographicBuffer.CreateFromByteArray(SignKey);
                     KeyCredentialOperationResult operationResult = await retrievalResult.Credential.RequestSignAsync(dataToSign);
+
+                    // Set the event to cause the worker thread to exit.
+                    exitThreadEvent.Set();
 
                     if (operationResult.Status == KeyCredentialStatus.Success)
                     {
@@ -236,34 +243,38 @@ namespace KeePassProtectedKeyStore
         //     many different ways to bring KeePass back to the foreground, this was the only one that worked at all.
         //     It may not work consitiently (or not work at all) on versions of Windows other than the one on which it
         //     was tested.
-        private void CircumventWindowsHelloAnomalies()
+        private void CircumventWindowsHelloAnomalies(ManualResetEventSlim exitThreadEvent)
         {
-            IntPtr windowsHelloDialogHandle = IntPtr.Zero;
-            HiddenDlg dlg = new HiddenDlg();
-
-            // Keep retrying for a defined period of time to find the HWND of the Windows Hello dialog. If it is not
-            // found within the given number of retries, it is unlikely the dialog will ever be found within this
-            // iteration of the code.
-            for (int i = 1; i <= WindowsHelloDialogRetries && windowsHelloDialogHandle == IntPtr.Zero; i++)
+            // Keep looping until the invoking thread signals to exit the thread. The Windows Hello dialog will go from a
+            // non-existent state to an existent state more than once if the user completes the verification incorrectly.
+            while (!exitThreadEvent.Wait(0))
             {
+                IntPtr windowsHelloDialogHandle = IntPtr.Zero;
+                HiddenDlg dlg = new HiddenDlg();
+
+                // Keep retrying to find the HWND of the Windows Hello dialog. If it is not found within the given number
+                // of retries, it is unlikely the dialog will ever be found within this iteration of the code.
+                for (int i = 1; i <= WindowsHelloDialogRetries && windowsHelloDialogHandle == IntPtr.Zero && !exitThreadEvent.Wait(0); i++)
+                {
+                    Thread.Sleep(WindowsHelloDialogSleepInterval);
+                    windowsHelloDialogHandle = FindWindow(WindowsHelloDialogClassName, null);
+                }
+
+                // Launch the modeless hidden dialog.
+                dlg.Show(Program.MainForm);
+
+                // Keep making Windows Hello the foreground window as long as it exists.
+                while (windowsHelloDialogHandle != IntPtr.Zero)
+                {
+                    SetForegroundWindow(windowsHelloDialogHandle);
+                    Thread.Sleep(WindowsHelloDialogSleepInterval);
+                    windowsHelloDialogHandle = FindWindow(WindowsHelloDialogClassName, null);
+                }
+
+                // Close the modeless dialog, which "should" make KeePass the foreground process.
                 Thread.Sleep(WindowsHelloDialogSleepInterval);
-                windowsHelloDialogHandle = FindWindow(WindowsHelloDialogClassName, null);
+                dlg.Close();
             }
-
-            // Launch the modeless hidden dialog.
-            dlg.Show(Program.MainForm);
-
-            // Keep making Windows Hello the foreground window as long as it exists.
-            while (windowsHelloDialogHandle != IntPtr.Zero)
-            {
-                SetForegroundWindow(windowsHelloDialogHandle);
-                Thread.Sleep(WindowsHelloDialogSleepInterval);
-                windowsHelloDialogHandle = FindWindow(WindowsHelloDialogClassName, null);
-            }
-
-            // Close the modeless dialog, which "should" make KeePass the foreground process.
-            Thread.Sleep(WindowsHelloDialogSleepInterval);
-            dlg.Close();
         }
     }
 }

@@ -110,12 +110,12 @@ namespace KeePassProtectedKeyStore
 
         // Method to encrypt the specified byte data and save it in a file. The EncryptionEngine instance will
         // handle any exceptions and will return false if the operation did not complete.
-        public static bool CreateAndStoreProtectedKeyStore(string dbPath, byte[] pbData) =>
-            EncryptionEngine.NewInstance.Encrypt(dbPath, pbData);
+        public static bool CreateAndStoreProtectedKeyStore(string dbPath, byte[] pbData, EncryptionEngine encryptionEngine = null) =>
+            (encryptionEngine ?? EncryptionEngine.NewInstance).Encrypt(dbPath, pbData);
 
         // Method to return a protected key store for the specified database. The EncryptionEngine instance will
         // handle any exceptions and will return null if the operation did not complete.
-        public static byte[] GetProtectedKeyStore(string dbPath) =>
-            EncryptionEngine.NewInstance.Decrypt(dbPath);
+        public static byte[] GetProtectedKeyStore(string dbPath, EncryptionEngine encryptionEngine = null) =>
+            (encryptionEngine ?? EncryptionEngine.NewInstance).Decrypt(dbPath);
     }
 }

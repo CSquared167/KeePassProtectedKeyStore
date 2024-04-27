@@ -221,55 +221,53 @@ namespace KeePassProtectedKeyStore
         }
 
         // Method to add an auto-login for the specified database to the configuration file.
-        public static bool AddAutoLogin(string dbPath)
+        public bool AddAutoLogin(string dbPath)
         {
-            PluginConfiguration pluginConfiguration = Instance;
             bool result = false;
 
-            if (!pluginConfiguration.IsAutoLoginSet(dbPath, out _))
+            if (!IsAutoLoginSet(dbPath, out _))
             {
-                Dictionary<string, bool> autoLoginMap = pluginConfiguration.AutoLoginMap;
+                Dictionary<string, bool> autoLoginMap = AutoLoginMap;
 
                 // If an entry doesn't already exist, add it to the Dictionary. The value indicating
                 // whether auto-login is enabled is determined by the user's preference whether to
                 // enable it by default.
-                autoLoginMap[dbPath] = pluginConfiguration.AutoLoginByDefault;
+                autoLoginMap[dbPath] = AutoLoginByDefault;
 
                 // Set the PluginConfiguration's AutoLoginMap with the updated Dictionary. This assignment
                 // will cause the configuration file to be written to the disk.
-                pluginConfiguration.AutoLoginMap = autoLoginMap;
+                AutoLoginMap = autoLoginMap;
 
                 // If the assignment to AutoLoginMap failed (for example, an I/O error writing the file),
                 // the PluginConfiguration class' LastError will contain the HRESULT of the caught
                 // exception.
-                result = pluginConfiguration.LastError == 0;
+                result = LastError == 0;
             }
 
             return result;
         }
 
         // Method to remove an auto-login entry from the plugin configuration.
-        public static bool RemoveAutoLogin(string dbPath)
+        public bool RemoveAutoLogin(string dbPath)
         {
-            PluginConfiguration pluginConfiguration = Instance;
             string autoLoginKey = GetAutoLoginKey(dbPath);
             bool result = false;
 
             if (!string.IsNullOrEmpty(autoLoginKey))
             {
-                Dictionary<string, bool> autoLoginMap = pluginConfiguration.AutoLoginMap;
+                Dictionary<string, bool> autoLoginMap = AutoLoginMap;
 
                 // Remove the database from the auto-login table.
                 autoLoginMap.Remove(autoLoginKey);
 
                 // Set the PluginConfiguration's AutoLoginMap with the updated Dictionary. This assignment
                 // will cause the configuration file to be written to the disk.
-                pluginConfiguration.AutoLoginMap = autoLoginMap;
+                AutoLoginMap = autoLoginMap;
 
                 // If the assignment to AutoLoginMap failed (for example, an I/O error writing the file),
                 // the PluginConfiguration class' LastError will contain the HRESULT of the caught
                 // exception.
-                result = pluginConfiguration.LastError == 0;
+                result = LastError == 0;
             }
 
             return result;
@@ -277,10 +275,9 @@ namespace KeePassProtectedKeyStore
 
         // Method to get the auto-login key from the plugin configuration. Because dbPath can have different
         // upper/lowercase characters from what is in the auto-login map, an all-lowercase search is done.
-        private static string GetAutoLoginKey(string dbPath)
+        private string GetAutoLoginKey(string dbPath)
         {
-            PluginConfiguration pluginConfiguration = Instance;
-            Dictionary<string, bool> autoLoginMap = pluginConfiguration.AutoLoginMap;
+            Dictionary<string, bool> autoLoginMap = AutoLoginMap;
             Dictionary<string, string> autoLoginKeyMap = autoLoginMap.Keys
                 .ToDictionary(p => p.ToLower(), p => p);
 

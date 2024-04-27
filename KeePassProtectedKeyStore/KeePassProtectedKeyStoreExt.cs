@@ -13,15 +13,19 @@ using System.Windows.Forms;
 
 namespace KeePassProtectedKeyStore
 {
-    // This plugin uses Windows System.Security.Cryptography.ProtectedData methods to create protected key
-    // stores. The cryptography methods use the computer's Trusted Platform Module (TPM) to encrypt and decrypt
-    // the data. The encrypted files are stored in the AppData folder under a subfolder created by this plugin.
+    // This plugin uses Windows Cryptography methods to create protected key stores. The cryptography methods
+    // use the computer's Trusted Platform Module (TPM) to encrypt and decrypt the data. The encrypted files
+    // are stored in the AppData folder under a subfolder created by this plugin. The user has the choice to
+    // encrypt/decrypt the protected key store via either the Data Protection API (DPAPI) or Windows Hello,
+    // depending on the user's desired level of security.
     //
     // The following functionality is provided:
     // - If the user has a database already open, this plugin can convert one or more existing authentication
     //   keys (master password, Windows user account, and/or a key/file provider) to a protected key store.
     //   After that, the "KeePassProtectedKeyStore" option under the "Key/file provider" authentication key
-    //   can be used in place of the converted authentication key(s) that was/were converted.
+    //   can be used in place of the converted authentication key(s) that was/were converted. If Windows Hello
+    //   is chosen as the encryption method, a Windows Hello prompt will be displayed whenever a protected key
+    //   store is being accessed.
     // - If a database is open that has a protected key store, the user can create an emergency key recovery
     //   file, in case the protected key store file is no longer available (e.g., the user purchases a new
     //   computer, needs to rebuild the computer, etc.).
@@ -63,6 +67,10 @@ namespace KeePassProtectedKeyStore
     //   protected key store and auto-login entries were not being removed.
     // - Corrected an issue in the plugin's Terminate method, to remove the "WindowRemoved" event handler correctly.
     // - Minor code refactoring not impacting functionality.
+    //
+    // Version 1.2.0 changes:
+    // - Added support for Windows Hello encryption/decryption.
+    // - Changed PluginConfiguration class auto-login methods from static to non-static.
 
     public sealed class KeePassProtectedKeyStoreExt : Plugin
     {
@@ -152,7 +160,7 @@ namespace KeePassProtectedKeyStore
                 if (!string.IsNullOrEmpty(connectionInfo?.Path) &&
                         !Helper.OpenExistingKeyUsingDefaultKey &&
                         ProtectedKeyStore.IsProtectedKeyStoreInCompositeKey(compositeKey, out bool exclusive) && exclusive)
-                    PluginConfiguration.AddAutoLogin(connectionInfo.Path);
+                    PluginConfiguration.Instance.AddAutoLogin(connectionInfo.Path);
 
                 // Reset helper variable.
                 Helper.OpenExistingKeyUsingDefaultKey = false;
@@ -173,6 +181,7 @@ namespace KeePassProtectedKeyStore
                     // protected key store.
                     CompositeKey compositeKey = keyCreationForm.CompositeKey;
                     IUserKey userKey = ProtectedKeyStore.FindProtectedKeyStoreInCompositeKey(compositeKey, out bool exclusive);
+                    PluginConfiguration pluginConfiguration = PluginConfiguration.Instance;
 
                     // Initial criterion for auto-login is that a protected key store must be the only
                     // authentication method.
@@ -186,7 +195,7 @@ namespace KeePassProtectedKeyStore
 
                     // Remove the auto-login entry for this database from the plugin configuration. It will be
                     // added back down below if required.
-                    PluginConfiguration.RemoveAutoLogin(dbPathFromFieldInfo);
+                    pluginConfiguration.RemoveAutoLogin(dbPathFromFieldInfo);
 
                     // If the new master key doesn't contain a protected key store, or if the user requested to
                     // use the default key, delete the protected key store file associated with this database
@@ -209,7 +218,7 @@ namespace KeePassProtectedKeyStore
 
                     // Add an auto-login entry if it meets all of the criteria.
                     if (addAutoLogin)
-                        PluginConfiguration.AddAutoLogin(dbPath);
+                        pluginConfiguration.AddAutoLogin(dbPath);
                 }
 
                 // Reset helper variables.

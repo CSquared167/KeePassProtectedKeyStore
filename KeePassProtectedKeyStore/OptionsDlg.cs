@@ -25,6 +25,7 @@ namespace KeePassProtectedKeyStore
             CompositeKey compositeKey = pd?.MasterKey;
             uint userKeyCount = compositeKey?.UserKeyCount ?? 0;
             bool existingProtectedKeyStore = ProtectedKeyStore.IsProtectedKeyStoreInCompositeKey(compositeKey, out bool exclusive);
+            PluginConfiguration pluginConfiguration = PluginConfiguration.Instance;
 
             // Enable ButtonConvert only if a database is already open and either does not already have a
             // protected key store or has additional authentication keys.
@@ -34,7 +35,7 @@ namespace KeePassProtectedKeyStore
             ButtonCreateEmergencyFile.Enabled = existingProtectedKeyStore;
 
             // Set the checkbox (or not) to indicate whether auto-login is enabled by default.
-            CheckBoxAutoLoginByDefault.Checked = PluginConfiguration.Instance.AutoLoginByDefault;
+            CheckBoxAutoLoginByDefault.Checked = pluginConfiguration.AutoLoginByDefault;
 
             // Setting CheckBoxAutoLoginByDefault.Checked fires an "CheckedChanged" event. Because we are
             // initializing the checkbox and not updating it, the "CheckedChanged" event handler is enabled
@@ -45,7 +46,7 @@ namespace KeePassProtectedKeyStore
             // Show CheckBoxUseWindowsHelloEncryption and GroupBoxWindowsHello only if Windows Hello is supported.
             // Set the check depending on whether the user has previously requested to use Windows Hello.
             CheckBoxUseWindowsHelloEncryption.Visible = await KeyCredentialManager.IsSupportedAsync();
-            CheckBoxUseWindowsHelloEncryption.Checked = PluginConfiguration.Instance.UseWindowsHelloEncryption;
+            CheckBoxUseWindowsHelloEncryption.Checked = pluginConfiguration.UseWindowsHelloEncryption;
             GroupBoxWindowsHello.Visible = CheckBoxUseWindowsHelloEncryption.Visible;
 
             // Setting CheckBoxUseWindowsHelloEncryption.Checked fires an "CheckedChanged" event. Because we are
@@ -93,7 +94,6 @@ namespace KeePassProtectedKeyStore
         // WIndows Hello for encryption operations.
         private void CheckBoxUseWindowsHelloEncryption_CheckedChanged(object sender, EventArgs e)
         {
-            PluginConfiguration pluginConfiguration = PluginConfiguration.Instance;
             bool useWindowsHelloEncryption = CheckBoxUseWindowsHelloEncryption.Checked;
             EncryptionEngine encryptionEngineSrc = EncryptionEngine.NewInstance;
             EncryptionEngine encryptionEngineDest = useWindowsHelloEncryption ?
@@ -116,7 +116,7 @@ namespace KeePassProtectedKeyStore
             {
                 encryptionEngineSrc.DeleteProtectedKeyStoreFiles(protectedKeyStoreFileNames);
 
-                pluginConfiguration.UseWindowsHelloEncryption = useWindowsHelloEncryption;
+                PluginConfiguration.Instance.UseWindowsHelloEncryption = useWindowsHelloEncryption;
             }
             else
             {
@@ -126,6 +126,9 @@ namespace KeePassProtectedKeyStore
                 CheckBoxUseWindowsHelloEncryption.Checked = !useWindowsHelloEncryption;
                 CheckBoxUseWindowsHelloEncryption.CheckedChanged += CheckBoxUseWindowsHelloEncryption_CheckedChanged;
             }
+
+            // Ensure the dialog is activated, so it will have the focus.
+            Activate();
         }
 
         // Handler for when the user clicks the Help button.
@@ -135,10 +138,11 @@ namespace KeePassProtectedKeyStore
         // Handler for when the user checks/unchecks an item in the auto-login list box.
         private void CheckedListBoxAutoLogin_ItemCheck(object sender, ItemCheckEventArgs e)
         {
-            Dictionary<string, bool> autoLoginMap = PluginConfiguration.Instance.AutoLoginMap;
+            PluginConfiguration pluginConfiguration = PluginConfiguration.Instance;
+            Dictionary<string, bool> autoLoginMap = pluginConfiguration.AutoLoginMap;
 
             autoLoginMap[Convert.ToString(CheckedListBoxAutoLogin.Items[e.Index])] = e.NewValue == CheckState.Checked;
-            PluginConfiguration.Instance.AutoLoginMap = autoLoginMap;
+            pluginConfiguration.AutoLoginMap = autoLoginMap;
         }
 
         // Method to populate the auto-logins list box.
@@ -167,7 +171,7 @@ namespace KeePassProtectedKeyStore
         // list box.
         private void AddAutoLogin(string dbPath)
         {
-            if (PluginConfiguration.AddAutoLogin(dbPath))
+            if (PluginConfiguration.Instance.AddAutoLogin(dbPath))
                 PopulateAutoLoginsListBox();
         }
     }

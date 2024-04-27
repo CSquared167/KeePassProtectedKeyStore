@@ -60,7 +60,7 @@ namespace KeePassProtectedKeyStore
         }
 
         // Method to store the protected key store in the AppData store.
-        public static bool SetProtectedKeyStore(string dbPath, byte[] pbUnprotectedKey, byte[] pbProtectedKey, string protectedKeyStoreSubFolder)
+        public static bool SetProtectedKeyStore(string dbPath, byte[] pbUnprotectedKey, byte[] pbProtectedKey, string protectedKeyStoreSubFolder, EncryptionEngine encryptionEngine = null)
         {
             string protectedKeyStoreFilePath = BuildProtectedKeyStoreFilePath(dbPath, protectedKeyStoreSubFolder);
             byte[] pbData = null;
@@ -70,8 +70,9 @@ namespace KeePassProtectedKeyStore
             if (writeFile && File.Exists(protectedKeyStoreFilePath))
             {
                 // A protected key store file already exists. Attempt to get the unencrypted contents.
-                pbData = ProtectedKeyStore.GetProtectedKeyStore(dbPath);
-                if (pbData != null)
+                pbData = ProtectedKeyStore.GetProtectedKeyStore(dbPath, encryptionEngine);
+                writeFile = pbData != null;
+                if (writeFile)
                 {
                     // If the existing file has the same key as the new one, tell the user that a new
                     // file does not need to be created. If the keys are different, warn the user
