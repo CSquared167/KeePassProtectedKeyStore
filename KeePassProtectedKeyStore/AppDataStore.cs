@@ -15,13 +15,29 @@ namespace KeePassProtectedKeyStore
         private static string ProtectedKeyStoreFileExtension => ".bin";
 
         // AppData Company path for this plugin
-        private static string KeePassProtectedKeyStoreCompanyPath { get; } =
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyCompanyAttribute>().Company);
+        private static string KeePassProtectedKeyStoreCompanyPath
+        {
+            get
+            {
+                string result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyCompanyAttribute>().Company);
+
+                Directory.CreateDirectory(result);
+                return result;
+            }
+        }
 
         // AppData Product path for this plugin
-        private static string KeePassProtectedKeyStoreProductPath { get; } =
-            Path.Combine(KeePassProtectedKeyStoreCompanyPath, Helper.PluginName);
+        private static string KeePassProtectedKeyStoreProductPath
+        {
+            get
+            {
+                string result = Path.Combine(KeePassProtectedKeyStoreCompanyPath, Helper.PluginName);
+
+                Directory.CreateDirectory(result);
+                return result;
+            }
+        }
 
         // AppData configuration file path for this plugin
         private static string PluginConfigurationFileName =>
@@ -174,10 +190,7 @@ namespace KeePassProtectedKeyStore
         {
             string protectedKeyStoreProductPath = Path.Combine(KeePassProtectedKeyStoreProductPath, protectedKeyStoreSubFolder);
 
-            Directory.CreateDirectory(KeePassProtectedKeyStoreCompanyPath);
-            Directory.CreateDirectory(KeePassProtectedKeyStoreProductPath);
             Directory.CreateDirectory(protectedKeyStoreProductPath);
-
             return protectedKeyStoreProductPath;
         }
 

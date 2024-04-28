@@ -71,6 +71,11 @@ namespace KeePassProtectedKeyStore
     // Version 1.2.0 changes:
     // - Added support for Windows Hello encryption/decryption.
     // - Changed PluginConfiguration class auto-login methods from static to non-static.
+    //
+    // Version 1.2.1 changes:
+    // - Corrected an issue where attempting to access files in the AppData folder would throw an error if the
+    //   folder did not already exist (e.g., when loading the plugin for the first time and attempting to import
+    //   an emergency key recovery file, an error would be displayed that the AppData folder did not exist).
 
     public sealed class KeePassProtectedKeyStoreExt : Plugin
     {
