@@ -76,6 +76,9 @@ namespace KeePassProtectedKeyStore
     // - Corrected an issue where attempting to access files in the AppData folder would throw an error if the
     //   folder did not already exist (e.g., when loading the plugin for the first time and attempting to import
     //   an emergency key recovery file, an error would be displayed that the AppData folder did not exist).
+    //
+    // Version 1.3.0 changes:
+    // - Fixes for issue #1: Opening multiple databases with Windows Hello replaces the currently focused database.
 
     public sealed class KeePassProtectedKeyStoreExt : Plugin
     {
@@ -257,12 +260,22 @@ namespace KeePassProtectedKeyStore
                         // If getting the key was successful, create a new CompositeKey instance
                         // and use it to open the database.
                         CompositeKey compositeKey = new CompositeKey();
+                        DocumentManagerEx dm = Program.MainForm.DocumentManager;
 
                         compositeKey.AddUserKey(new KcpCustomKey(Helper.PluginName, pbData, false));
-                        PluginHost.Database.Open(connectionInfo, compositeKey, null);
 
-                        PwDocument ds = Program.MainForm.DocumentManager.ActiveDocument;
+                        // If KeePass is being initially launched, clear the default document from
+                        // the document manager. If KeePass is not initially being launched, that
+                        // means a different database is being opened. In either case, we want to
+                        // create a new doucment and open its associated database.
+                        if (dm.Documents.Count == 1 && !dm.ActiveDocument.Database.IsOpen)
+                            dm.Documents.Clear();
+
+                        PwDocument ds = dm.CreateNewDocument(true);
                         PwDatabase pd = ds.Database;
+
+                        ds.LockedIoc = connectionInfo.CloneDeep();
+                        pd.Open(connectionInfo, compositeKey, null);
 
                         // Check whether the database was successfully opened. This could happen in
                         // some situations, for example if the user had a database selected for auto-
@@ -287,7 +300,10 @@ namespace KeePassProtectedKeyStore
                                 ds.LockedIoc = new IOConnectionInfo();
 
                             // Update KeePass' UI, telling it to navigate to the last selected group.
-                            PluginHost.MainWindow.UpdateUI(false, null, true, pgSelect, true, pgSelect, false);
+                            // Pass true for the first parameter to recreate the tab bar; opening a
+                            // single database will not show the tab bar, but opening multiple
+                            // databases will show the tab bar.
+                            PluginHost.MainWindow.UpdateUI(true, null, true, pgSelect, true, pgSelect, false);
 
                             success = true;
                         }
