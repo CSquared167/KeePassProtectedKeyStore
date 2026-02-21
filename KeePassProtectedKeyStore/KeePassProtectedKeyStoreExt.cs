@@ -1,12 +1,11 @@
-﻿using KeePass;
-using KeePass.Forms;
+﻿using KeePass.Forms;
 using KeePass.Plugins;
 using KeePass.UI;
-using KeePassLib;
 using KeePassLib.Keys;
 using KeePassLib.Serialization;
 using KeePassLib.Utility;
 using System;
+using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
 
@@ -79,11 +78,21 @@ namespace KeePassProtectedKeyStore
     //
     // Version 1.3.0 changes:
     // - Fixes for issue #1: Opening multiple databases with Windows Hello replaces the currently focused database.
+    //
+    // Version 1.4.0 changes:
+    // - Fixes for issue #3: KPPKS breaks autoexec and database opened triggers.
+    // - Fixes for issue #4: Auto-unlocking does not trigger pluginHost.MainWindow.FileOpened
+    // - Corrected an issue where 1) a database is already open, 2) the user starts to open another database that
+    //   uses a password login, and 3) the user cancels out of the login. Under these conditions, the already-opened
+    //   database becomes locked. The only recourse is to close KeePass and relaunch it.
 
     public sealed class KeePassProtectedKeyStoreExt : Plugin
     {
         // Key provider instance.
         private KeePassProtectedKeyStoreProvider KeyProviderInstance { get; } = new KeePassProtectedKeyStoreProvider();
+
+        // Copy of KeyPromptForm.DesktopLocation.
+        private Point KeyPromptFormDesktopLocation {  get; set; }
 
         // PluginHost property, to hold the IPluginHost instance KeePass passes in from the
         // Initialize method.
@@ -134,16 +143,53 @@ namespace KeePassProtectedKeyStore
                 FieldInfo fieldInfo = typeof(KeyPromptForm).GetField("m_ioInfo", BindingFlags.Instance | BindingFlags.NonPublic);
                 IOConnectionInfo connectionInfo = fieldInfo?.GetValue(keyPromptForm) as IOConnectionInfo;
 
-                // If the user has enabled this database for auto-login, complete the login, move
-                // the form off the screen and simulate a click of the Cancel button. If the form
-                // is not moved off the screen, it will briefly flicker on the screen before
-                // disappearing.
-                if (PerformAutoLogin(connectionInfo))
+                // If the user has enabled this database for auto-login, register a handler for the
+                // KeyPromptForm.Shown event, save the current KeyPromptForm.DesktopLocation and
+                // move the form off the screen. If the form is not moved off the screen, it will
+                // briefly flicker on the screen before disappearing.
+                if (CanDoAutoLogin(connectionInfo))
                 {
-                    keyPromptForm.SetDesktopLocation(-keyPromptForm.Size.Width, -keyPromptForm.Size.Height);
-                    keyPromptForm.CancelButton.PerformClick();
+                    keyPromptForm.Shown += KeyPromptForm_Shown;
+                    KeyPromptFormDesktopLocation = keyPromptForm.DesktopLocation;
+                    keyPromptForm.DesktopLocation = new Point(-keyPromptForm.Size.Width, -keyPromptForm.Size.Height);
                 }
             }
+        }
+
+        // Event handler for KeyPromptForm.Shown.
+        private void KeyPromptForm_Shown(object sender, EventArgs e)
+        {
+            KeyPromptForm keyPromptForm = sender as KeyPromptForm;
+
+            // Use reflection to get the instance's private m_cbPassword, m_cbKeyFile, and
+            // m_cmbKeyFile member variables.
+            FieldInfo fieldInfoPasswordCheckBox = typeof(KeyPromptForm).GetField("m_cbPassword", BindingFlags.Instance | BindingFlags.NonPublic);
+            FieldInfo fieldInfoKeyFileCheckBox = typeof(KeyPromptForm).GetField("m_cbKeyFile", BindingFlags.Instance | BindingFlags.NonPublic);
+            FieldInfo fieldInfoKeyFileComboBox = typeof(KeyPromptForm).GetField("m_cmbKeyFile", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            // Derive the instance's CheckBoxes/ComboBox instances from their corresponding
+            // FieldInfo values.
+            CheckBox cbPassword = fieldInfoPasswordCheckBox?.GetValue(keyPromptForm) as CheckBox;
+            CheckBox cbKeyFile = fieldInfoKeyFileCheckBox?.GetValue(keyPromptForm) as CheckBox;
+            ComboBox cmbKeyFile = fieldInfoKeyFileComboBox?.GetValue(keyPromptForm) as ComboBox;
+
+            // If 1) an error has not occurred fetching the Windows.Forms CheckBoxes and ComboBox
+            // instances, 2) the "Master passsword" checkbox is not checked, and 3) the
+            // "Key file/provider" checkbox is checked, get the current text value of the
+            // key file/provider combo box.
+            string keyFileText = !(cbPassword?.Checked ?? false) && (cbKeyFile?.Checked ?? false) ? cmbKeyFile?.Text : string.Empty;
+
+            // Be sure to unregister the event handler.
+            keyPromptForm.Shown -= KeyPromptForm_Shown;
+
+            // If KeyPromptForm was initialized to use our plugin as the key provider, simulate a
+            // click of the OK button so KeePass will think the user accepted the selections in the
+            // form. In all other cases, reposition KeyPromptForm back to its original location so
+            // the user can interact eith it.
+            if (keyFileText == Helper.PluginName)
+                keyPromptForm.AcceptButton.PerformClick();
+            else
+                keyPromptForm.DesktopLocation = KeyPromptFormDesktopLocation;
         }
 
         // GlobalWindowManager's WindowRemoved event handler.
@@ -235,95 +281,15 @@ namespace KeePassProtectedKeyStore
             }
         }
 
-        // Method to perform an auto-login of the database specified in the IConnectionInfo instance, or auto-login
-        // using the default protected key store.
-        private bool PerformAutoLogin(IOConnectionInfo connectionInfo) =>
-            PerformAutoLogin(connectionInfo, connectionInfo?.Path) ||
-            PerformAutoLogin(connectionInfo, Helper.DefaultProtectedKeyStoreName);
-
-        // Method to perform an auto-login of the database specified in the IConnectionInfo instance, using the
-        // database path specified in dbPath.
-        private bool PerformAutoLogin(IOConnectionInfo connectionInfo, string dbPath)
+        // Method to check whether an auto-login can be done either for the database specified in the
+        // IConnectionInfo instance or for the default protected key store.
+        private bool CanDoAutoLogin(IOConnectionInfo connectionInfo)
         {
-            bool success = false;
+            PluginConfiguration pluginConfiguration = PluginConfiguration.Instance;
+            bool autoLoginConfigured = pluginConfiguration.IsAutoLoginSet(connectionInfo?.Path, out bool autoLoginEnabled) ||
+                pluginConfiguration.IsAutoLoginSet(Helper.DefaultProtectedKeyStoreName, out autoLoginEnabled);
 
-            // Check whether auto-login is set and enabled for this database.
-            if (PluginConfiguration.Instance.IsAutoLoginSet(dbPath, out bool autoLoginEnabled) && autoLoginEnabled)
-            {
-                byte[] pbData = null;
-
-                try
-                {
-                    pbData = ProtectedKeyStore.GetProtectedKeyStore(dbPath);
-                    if (pbData != null)
-                    {
-                        // If getting the key was successful, create a new CompositeKey instance
-                        // and use it to open the database.
-                        CompositeKey compositeKey = new CompositeKey();
-                        DocumentManagerEx dm = Program.MainForm.DocumentManager;
-
-                        compositeKey.AddUserKey(new KcpCustomKey(Helper.PluginName, pbData, false));
-
-                        // If KeePass is being initially launched, clear the default document from
-                        // the document manager. If KeePass is not initially being launched, that
-                        // means a different database is being opened. In either case, we want to
-                        // create a new doucment and open its associated database.
-                        if (dm.Documents.Count == 1 && !dm.ActiveDocument.Database.IsOpen)
-                            dm.Documents.Clear();
-
-                        PwDocument ds = dm.CreateNewDocument(true);
-                        PwDatabase pd = ds.Database;
-
-                        ds.LockedIoc = connectionInfo.CloneDeep();
-                        pd.Open(connectionInfo, compositeKey, null);
-
-                        // Check whether the database was successfully opened. This could happen in
-                        // some situations, for example if the user had a database selected for auto-
-                        // login and subsequently changed the master key. The plugin configuration
-                        // will still have the database flagged for auto-login, but that is okay.
-                        // This method will return false, allowing KeePass to display the KeyPromptForm.
-                        if (pd.IsOpen)
-                        {
-                            // Check whether a last selected group exists. If the user creates one or
-                            // more password groups, selects one of them and eventually exits KeePass,
-                            // KeePass will navigate the tree control to the last selected group the
-                            // next time the user opens the database. We need to obtain the last
-                            // selected group here, or else KeePass will display the root folder of
-                            // the database.
-                            PwGroup pgSelect = !pd.LastSelectedGroup.Equals(PwUuid.Zero) ?
-                                pd.RootGroup.FindGroup(pd.LastSelectedGroup, true) :
-                                null;
-
-                            // If KeePass is being opened after the database has been locked, reset
-                            // the LockedIoc variable with an empty database path.
-                            if (ds.LockedIoc.Path.Length > 0)
-                                ds.LockedIoc = new IOConnectionInfo();
-
-                            // Update KeePass' UI, telling it to navigate to the last selected group.
-                            // Pass true for the first parameter to recreate the tab bar; opening a
-                            // single database will not show the tab bar, but opening multiple
-                            // databases will show the tab bar.
-                            PluginHost.MainWindow.UpdateUI(true, null, true, pgSelect, true, pgSelect, false);
-
-                            success = true;
-                        }
-                    }
-                }
-                catch
-                {
-                    // Do not notify the user of any errors. Simply return false and have KeePass
-                    // display the KeyPromptForm. If anything above throws an exception, it is likely
-                    // the manual login will end up throwing the same exception, and KeePass itself
-                    // can display a meaningful message to the user.
-                }
-
-                // Because pbData contains the unencrypted key, we need to clear the array so it does
-                // not persist in memory.
-                if (pbData != null)
-                    MemUtil.ZeroArray(pbData);
-            }
-
-            return success;
+            return autoLoginConfigured && autoLoginEnabled;
         }
 
         // Overridden method to return the menu item/subitems for our plugin.
