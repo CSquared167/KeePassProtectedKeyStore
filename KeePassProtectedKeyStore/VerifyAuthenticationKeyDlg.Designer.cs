@@ -40,7 +40,7 @@
             this.LabelHeader.Location = new System.Drawing.Point(14, 10);
             this.LabelHeader.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.LabelHeader.Name = "LabelHeader";
-            this.LabelHeader.Size = new System.Drawing.Size(801, 29);
+            this.LabelHeader.Size = new System.Drawing.Size(808, 29);
             this.LabelHeader.TabIndex = 0;
             this.LabelHeader.Text = "Verify the authentication key(s) you wish to convert to a protected key store:";
             // 
@@ -100,6 +100,7 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Verify Authentication Key(s) to Convert";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.VerifyAuthenticationKeyDlg_FormClosed);
             this.Load += new System.EventHandler(this.SelectUserKeyDlg_Load);
             this.ResumeLayout(false);
             this.PerformLayout();

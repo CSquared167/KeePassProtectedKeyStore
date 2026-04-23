@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KeePass.UI;
+using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -24,6 +25,18 @@ namespace KeePassProtectedKeyStore
         // for an AES encryption key.
         public byte[] Password =>
             EmergencyKeyRecoveryFile.MakeAesEncryptionKeyFromString(TextBoxPassword.TextEx.ReadUtf8());
+
+        // Event handler when the form has loaded.
+        private void VerifyPasswordDlg_Load(object sender, EventArgs e)
+        {
+            GlobalWindowManager.AddWindow(this);
+        }
+
+        // Event handler when the form has closed.
+        private void VerifyPasswordDlg_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            GlobalWindowManager.RemoveWindow(this);
+        }
 
         // Event handler when the user has changed the password.
         private void TextBoxUserKeyString_TextChanged(object sender, EventArgs e) =>

@@ -113,6 +113,8 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Create Emergency Key Recovery File";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.EncryptionMethodDialog_FormClosed);
+            this.Load += new System.EventHandler(this.EncryptionMethodDialog_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
 

@@ -1,4 +1,5 @@
-﻿using KeePassLib.Keys;
+﻿using KeePass.UI;
+using KeePassLib.Keys;
 using System;
 using System.Windows.Forms;
 
@@ -38,7 +39,7 @@ namespace KeePassProtectedKeyStore
                 // Prompt the user whether to use the default protected key store or an individual one.
                 using (ProtectedKeyStoreTypeDialog dlg = new ProtectedKeyStoreTypeDialog())
                 {
-                    createNewKey = dlg.ShowDialog() == DialogResult.OK;
+                    createNewKey = UIUtil.ShowDialog(dlg) == DialogResult.OK;
                     if (createNewKey)
                     {
                         // Set the helper variables to whether the user wants to use the default protected

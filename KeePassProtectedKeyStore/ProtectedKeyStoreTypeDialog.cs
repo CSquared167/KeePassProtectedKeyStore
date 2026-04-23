@@ -1,4 +1,5 @@
-﻿using System.Windows.Forms;
+﻿using KeePass.UI;
+using System.Windows.Forms;
 
 namespace KeePassProtectedKeyStore
 {
@@ -9,6 +10,18 @@ namespace KeePassProtectedKeyStore
         public ProtectedKeyStoreTypeDialog()
         {
             InitializeComponent();
+        }
+
+        // Event handler when the form has loaded.
+        private void ProtectedKeyStoreTypeDialog_Load(object sender, System.EventArgs e)
+        {
+            GlobalWindowManager.AddWindow(this);
+        }
+
+        // Event handler when the form has closed.
+        private void ProtectedKeyStoreTypeDialog_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            GlobalWindowManager.RemoveWindow(this);
         }
     }
 }

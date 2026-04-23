@@ -202,6 +202,8 @@ namespace KeePassProtectedKeyStore
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Create Emergency Key Recovery File";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.CreatePasswordDlg_FormClosing);
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.CreatePasswordDlg_FormClosed);
+            this.Load += new System.EventHandler(this.CreatePasswordDlg_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
 
