@@ -39,7 +39,6 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "HiddenDlg";
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.HiddenDlg_FormClosed);
             this.Load += new System.EventHandler(this.HiddenDlg_Load);
             this.ResumeLayout(false);
 

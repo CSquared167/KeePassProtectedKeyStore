@@ -112,8 +112,6 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Protected Key Store Type";
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.ProtectedKeyStoreTypeDialog_FormClosed);
-            this.Load += new System.EventHandler(this.ProtectedKeyStoreTypeDialog_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
 

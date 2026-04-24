@@ -1,5 +1,4 @@
-﻿using KeePass.UI;
-using KeePassLib.Security;
+﻿using KeePassLib.Security;
 using KeePassLib.Utility;
 using KeePassProtectedKeyStore.Properties;
 using System;
@@ -249,14 +248,14 @@ namespace KeePassProtectedKeyStore
 
                 using (EncryptionMethodDialog dlg = new EncryptionMethodDialog())
                 {
-                    createFile = UIUtil.ShowDialog(dlg) == DialogResult.OK;
+                    createFile = dlg.ShowDialog() == DialogResult.OK;
                     userEncryption = dlg.UserEncryption;
                 }
 
                 if (createFile && userEncryption)
                     using (CreatePasswordDlg dlg = new CreatePasswordDlg())
                     {
-                        createFile = UIUtil.ShowDialog(dlg) == DialogResult.OK;
+                        createFile = dlg.ShowDialog() == DialogResult.OK;
                         if (createFile)
                             pbUserEncryptionKey = dlg.Password;
                     }
@@ -289,7 +288,7 @@ namespace KeePassProtectedKeyStore
                         Title = string.Format("Save {0}", EmergencyRecoveryKeyFileFileType)
                     })
                     {
-                        if (UIUtil.ShowDialog(dlg) == DialogResult.OK)
+                        if (dlg.ShowDialog() == DialogResult.OK)
                         {
                             // Set the LastDirectory configuration property so any subsequent file open/save
                             // operations will initialize to the same directory.
@@ -354,7 +353,7 @@ namespace KeePassProtectedKeyStore
                         EmergencyRecoveryKeyFileFileType)
                 })
                 {
-                    if (UIUtil.ShowDialog(dlg) == DialogResult.OK)
+                    if (dlg.ShowDialog() == DialogResult.OK)
                     {
                         // Set the LastDirectory configuration property so any subsequent file open/save
                         // operations will initialize to the same directory.
@@ -376,7 +375,7 @@ namespace KeePassProtectedKeyStore
                                 // prompt for the password now.
                                 using (VerifyPasswordDlg verifyPasswordDlg = new VerifyPasswordDlg(keyFile.KeyDataAdditionalHash))
                                 {
-                                    getKeyData = UIUtil.ShowDialog(verifyPasswordDlg) == DialogResult.OK;
+                                    getKeyData = verifyPasswordDlg.ShowDialog() == DialogResult.OK;
 
                                     if (getKeyData)
                                     {
@@ -428,7 +427,7 @@ namespace KeePassProtectedKeyStore
                                 EmergencyRecoveryKeyFileFileType)
                         })
                         {
-                            if (UIUtil.ShowDialog(dlg) == DialogResult.OK)
+                            if (dlg.ShowDialog() == DialogResult.OK)
                             {
                                 createProtectedKeyStore = true;
                                 dbPathAssociatedWithKeyStore = dlg.FileName;
