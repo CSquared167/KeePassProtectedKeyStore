@@ -1,7 +1,8 @@
 ﻿using KeePass;
+using KeePass.UI;
+using KeePassLib;
 using KeePassLib.Keys;
 using KeePassLib.Utility;
-using KeePassLib;
 using KeePassProtectedKeyStore.Properties;
 using System.Windows.Forms;
 
@@ -56,7 +57,7 @@ namespace KeePassProtectedKeyStore
             exclusive = false;
 
             using (ProtectedKeyStoreTypeDialog dlg = new ProtectedKeyStoreTypeDialog())
-                if (dlg.ShowDialog() == DialogResult.OK)
+                if (UIUtil.ShowDialog(dlg) == DialogResult.OK)
                 {
                     PwDatabase pd = Program.MainForm.ActiveDatabase;
                     byte[] pbData = GetSelectedCompositeKeyData(pd.MasterKey, out exclusive);
@@ -98,7 +99,7 @@ namespace KeePassProtectedKeyStore
             byte[] pbData = null;
             using (VerifyAuthenticationKeyDlg dlg = new VerifyAuthenticationKeyDlg(compositeKey))
             {
-                if (dlg.ShowDialog() == DialogResult.OK)
+                if (UIUtil.ShowDialog(dlg) == DialogResult.OK)
                 {
                     pbData = dlg.SelectedUserKeyData;
                     exclusive = dlg.Exclusive;

@@ -166,6 +166,7 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "KeePassProtectedKeyStore Options";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.OptionsDlg_FormClosed);
             this.Load += new System.EventHandler(this.OptionsDlg_Load);
             this.GroupBoxAutoLogin.ResumeLayout(false);
             this.GroupBoxAutoLogin.PerformLayout();

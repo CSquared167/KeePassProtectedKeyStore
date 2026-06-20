@@ -1,4 +1,5 @@
-﻿using KeePassLib.Keys;
+﻿using KeePass.UI;
+using KeePassLib.Keys;
 using KeePassLib.Security;
 using KeePassLib.Utility;
 using KeePassProtectedKeyStore.Properties;
@@ -71,9 +72,11 @@ namespace KeePassProtectedKeyStore
             CompositeKeyInstance = compositeKey;
         }
 
-        // Event handler for when the dialog is loaded.
+        // Event handler when the form has loaded.
         private void SelectUserKeyDlg_Load(object sender, EventArgs e)
         {
+            GlobalWindowManager.AddWindow(this);
+
             // For each IUserKey in CompositeKeyInstance, add a descriptive name for the key in
             // the list box and add the list box index/IUserKey to UserKeyDictionary.
             foreach (IUserKey userKey in CompositeKeyInstance.UserKeys)
@@ -98,6 +101,12 @@ namespace KeePassProtectedKeyStore
                 ListBoxUserKeys.SelectedIndex = 0;
                 ButtonOK.Enabled = true;
             }
+        }
+
+        // Event handler when the form has closed.
+        private void VerifyAuthenticationKeyDlg_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            GlobalWindowManager.RemoveWindow(this);
         }
 
         // Event handler for when the list box selected item changes. Enable/disable the OK button

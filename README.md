@@ -4,7 +4,9 @@
 [![Github All Releases](https://img.shields.io/github/downloads/CSquared167/KeePassProtectedKeyStore/total.svg)](https://github.com/CSquared167/KeePassProtectedKeyStore/releases)
 [![License](https://img.shields.io/github/license/CSquared167/KeePassProtectedKeyStore.svg)](https://github.com/CSquared167/KeePassProtectedKeyStore/blob/master/LICENSE)
 
-This plugin for [KeePass 2][KeePass] password manager uses the computer's [Trusted Platform Module] (TPM) hardware to create protected key stores. The encrypted protected key store files are stored in the `%LOCALAPPDATA%\CSquared167\KeePassProtectedKeyStore` folder. For additional security, the user can choose to use [Windows Hello] to access the protected key stores.
+This plugin for [KeePass 2][KeePass] password manager uses the computer's [Trusted Platform Module] (TPM) hardware to create _protected key stores_, which are encrypted versions of the actual keys. The TPM hardware maintains the actual keys themselves, while this plugin maintains the protected key stores in the `%LOCALAPPDATA%\CSquared167\KeePassProtectedKeyStore` folder. For additional security, the user can choose to use [Windows Hello] to access the protected key stores.
+
+__NOTE:__ Because the actual keys are stored directly in the host computer's TPM hardware, this plugin is _not_ compatibile with the portable version of KeePass.
 
 KeePassProtectedKeyStore includes the following functionality:
 - [Convert](#creating-a-protected-key-store) one or more existing authentication keys (master password, Windows user account, and/or a key/file provider) to a protected key store.

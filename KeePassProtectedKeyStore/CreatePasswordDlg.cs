@@ -1,4 +1,5 @@
-﻿using KeePassLib.Cryptography;
+﻿using KeePass.UI;
+using KeePassLib.Cryptography;
 using KeePassProtectedKeyStore.Properties;
 using System;
 using System.Drawing;
@@ -60,11 +61,24 @@ namespace KeePassProtectedKeyStore
                     MessageBoxIcon.Question,
                     MessageBoxDefaultButton.Button2) == DialogResult.No;
 
+
+        // Event handler when the form has loaded.
+        private void CreatePasswordDlg_Load(object sender, EventArgs e)
+        {
+            GlobalWindowManager.AddWindow(this);
+        }
+
         // Event handler when the form is closing.
         private void CreatePasswordDlg_FormClosing(object sender, FormClosingEventArgs e)
         {
             e.Cancel = CancelClose;
             CancelClose = false;
+        }
+
+        // Event handler when the form has closed.
+        private void CreatePasswordDlg_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            GlobalWindowManager.RemoveWindow(this);
         }
 
         // Method to update the UI elements on the form.

@@ -1,11 +1,12 @@
 ﻿using KeePass;
-using KeePassLib.Keys;
+using KeePass.UI;
 using KeePassLib;
+using KeePassLib.Keys;
+using KeePassLib.Utility;
 using System;
 using System.Collections.Generic;
-using System.Windows.Forms;
-using KeePassLib.Utility;
 using System.Diagnostics;
+using System.Windows.Forms;
 using Windows.Security.Credentials;
 
 namespace KeePassProtectedKeyStore
@@ -17,9 +18,11 @@ namespace KeePassProtectedKeyStore
             InitializeComponent();
         }
 
-        // Load event handler for dialog.
+        // Event handler when the form has loaded.
         private async void OptionsDlg_Load(object sender, EventArgs e)
         {
+            GlobalWindowManager.AddWindow(this);
+
             PwDatabase pd = Program.MainForm.ActiveDatabase;
             string dbPath = pd?.IOConnectionInfo?.Path ?? string.Empty;
             CompositeKey compositeKey = pd?.MasterKey;
@@ -57,6 +60,12 @@ namespace KeePassProtectedKeyStore
 
             // Populate the auto-login listbox.
             PopulateAutoLoginsListBox();
+        }
+
+        // Event handler when the form has closed.
+        private void OptionsDlg_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            GlobalWindowManager.RemoveWindow(this);
         }
 
         // Handler for when the user requests to convert existing authentication key(s) to a protected

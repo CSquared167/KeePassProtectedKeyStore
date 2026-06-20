@@ -85,6 +85,13 @@ namespace KeePassProtectedKeyStore
     // - Corrected an issue where 1) a database is already open, 2) the user starts to open another database that
     //   uses a password login, and 3) the user cancels out of the login. Under these conditions, the already-opened
     //   database becomes locked. The only recourse is to close KeePass and relaunch it.
+    //
+    // Version 1.5.0 changes:
+    // - Implemented changes for maximum compatibility with KeePass version 2.61 and later (UIAccess support):
+    //   - Call UIUtil.ShowDialog(form) instead of calling form.ShowDialog().
+    //   - Call GlobalWindowManager.AddWindow(this) in the form's Load event handler (at the beginning), and
+    //       GlobalWindowManager.RemoveWindow(this) in the FormClosed event handler (like KeePass does in all
+    //       its forms).
 
     public sealed class KeePassProtectedKeyStoreExt : Plugin
     {
@@ -310,6 +317,6 @@ namespace KeePassProtectedKeyStore
 
         // Menu item click handler. Show the Options dialog.
         private void OnMenuItemClick(object sender, EventArgs e) =>
-            new OptionsDlg().ShowDialog();
+            UIUtil.ShowDialog(new OptionsDlg());
     }
 }
